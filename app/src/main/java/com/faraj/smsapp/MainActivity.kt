@@ -338,32 +338,23 @@ fun recipientsFromJson(
     val result = mutableListOf<Recipient>()
 
     try {
-
-        val array =
-            JSONArray(json)
+        val array = JSONArray(json)
 
         for (index in 0 until array.length()) {
-
-            val item =
-                array.getJSONObject(index)
+            val item = array.getJSONObject(index)
 
             result.add(
                 Recipient(
-                    name =
-                        item.optString("name"),
-                    phone =
-                        item.optString("phone")
+                    name = item.optString("name"),
+                    phone = item.optString("phone")
                 )
             )
-        },
         }
-
     } catch (_: Exception) {
     }
 
     return result
 }
-
 
 fun messageLogsToJson(
     logs: List<MessageLog>
