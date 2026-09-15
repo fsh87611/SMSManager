@@ -2,6 +2,7 @@
 package com.faraj.smsapp
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -21,17 +22,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -49,7 +51,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -70,26 +70,37 @@ data class Recipient(
 )
 
 fun readExcelFile(
-    context: android.content.Context,
+    context: Context,
     uri: Uri
 ): List<Recipient> {
+
     val recipients = mutableListOf<Recipient>()
 
     try {
+
         val inputStream: InputStream? =
             context.contentResolver.openInputStream(uri)
 
         if (inputStream != null) {
+
             val workbook = XSSFWorkbook(inputStream)
             val sheet = workbook.getSheetAt(0)
 
             for (row in sheet) {
+
                 if (row.rowNum == 0) continue
 
-                val name = row.getCell(0)?.toString()?.trim() ?: ""
-                val phone = row.getCell(1)?.toString()?.trim() ?: ""
+                val name =
+                    row.getCell(0)?.toString()?.trim() ?: ""
 
-                if (name.isNotBlank() && phone.isNotBlank()) {
+                val phone =
+                    row.getCell(1)?.toString()?.trim() ?: ""
+
+                if (
+                    name.isNotBlank() &&
+                    phone.isNotBlank()
+                ) {
+
                     recipients.add(
                         Recipient(
                             name = name,
@@ -102,6 +113,7 @@ fun readExcelFile(
             workbook.close()
             inputStream.close()
         }
+
     } catch (_: Exception) {
     }
 
@@ -116,6 +128,7 @@ class MainActivity : ComponentActivity() {
         ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
         if (
@@ -124,7 +137,10 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.SEND_SMS
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            requestSmsPermission.launch(Manifest.permission.SEND_SMS)
+
+            requestSmsPermission.launch(
+                Manifest.permission.SEND_SMS
+            )
         }
 
         setContent {
@@ -142,11 +158,21 @@ fun SmsManagerApp() {
     }
 
     var recipients by remember {
+
         mutableStateOf(
             listOf(
-                Recipient("أحمد محمد", "0590000000"),
-                Recipient("محمد علي", "0591111111"),
-                Recipient("سارة محمود", "0592222222")
+                Recipient(
+                    "أحمد محمد",
+                    "0590000000"
+                ),
+                Recipient(
+                    "محمد علي",
+                    "0591111111"
+                ),
+                Recipient(
+                    "سارة محمود",
+                    "0592222222"
+                )
             )
         )
     }
@@ -159,11 +185,27 @@ fun SmsManagerApp() {
         mutableStateOf(false)
     }
 
+    var showEditDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var editingRecipient by remember {
+        mutableStateOf<Recipient?>(null)
+    }
+
     var newName by remember {
         mutableStateOf("")
     }
 
     var newPhone by remember {
+        mutableStateOf("")
+    }
+
+    var editName by remember {
+        mutableStateOf("")
+    }
+
+    var editPhone by remember {
         mutableStateOf("")
     }
 
@@ -175,7 +217,8 @@ fun SmsManagerApp() {
         mutableStateOf("")
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
 
     val excelPicker =
         rememberLauncherForActivityResult(
@@ -185,9 +228,13 @@ fun SmsManagerApp() {
             if (uri != null) {
 
                 val importedRecipients =
-                    readExcelFile(context, uri)
+                    readExcelFile(
+                        context,
+                        uri
+                    )
 
-                recipients = importedRecipients
+                recipients =
+                    importedRecipients
 
                 selectedPhones = emptySet()
 
@@ -197,7 +244,9 @@ fun SmsManagerApp() {
         }
 
     Scaffold(
+
         topBar = {
+
             TopAppBar(
                 title = {
                     Text("Faraj SMS")
@@ -211,7 +260,9 @@ fun SmsManagerApp() {
 
                 NavigationBarItem(
                     selected = currentPage == 0,
-                    onClick = { currentPage = 0 },
+                    onClick = {
+                        currentPage = 0
+                    },
                     icon = {
                         Icon(
                             Icons.Default.Home,
@@ -225,7 +276,9 @@ fun SmsManagerApp() {
 
                 NavigationBarItem(
                     selected = currentPage == 1,
-                    onClick = { currentPage = 1 },
+                    onClick = {
+                        currentPage = 1
+                    },
                     icon = {
                         Icon(
                             Icons.Default.People,
@@ -239,7 +292,9 @@ fun SmsManagerApp() {
 
                 NavigationBarItem(
                     selected = currentPage == 2,
-                    onClick = { currentPage = 2 },
+                    onClick = {
+                        currentPage = 2
+                    },
                     icon = {
                         Icon(
                             Icons.Default.Send,
@@ -253,7 +308,9 @@ fun SmsManagerApp() {
 
                 NavigationBarItem(
                     selected = currentPage == 3,
-                    onClick = { currentPage = 3 },
+                    onClick = {
+                        currentPage = 3
+                    },
                     icon = {
                         Icon(
                             Icons.Default.History,
@@ -266,6 +323,7 @@ fun SmsManagerApp() {
                 )
             }
         }
+
     ) { paddingValues ->
 
         Surface(
@@ -279,11 +337,16 @@ fun SmsManagerApp() {
                 0 -> {
 
                     HomeScreen(
-                        recipientsCount = recipients.size,
-                        selectedCount = selectedPhones.size,
+                        recipientsCount =
+                            recipients.size,
+
+                        selectedCount =
+                            selectedPhones.size,
+
                         onOpenRecipients = {
                             currentPage = 1
                         },
+
                         onOpenSend = {
                             currentPage = 2
                         }
@@ -294,14 +357,23 @@ fun SmsManagerApp() {
 
                     RecipientsScreen(
                         recipients = recipients,
-                        selectedPhones = selectedPhones,
+
+                        selectedPhones =
+                            selectedPhones,
 
                         onToggleSelection = { phone ->
 
                             selectedPhones =
-                                if (selectedPhones.contains(phone)) {
+                                if (
+                                    selectedPhones.contains(
+                                        phone
+                                    )
+                                ) {
+
                                     selectedPhones - phone
+
                                 } else {
+
                                     selectedPhones + phone
                                 }
                         },
@@ -309,29 +381,55 @@ fun SmsManagerApp() {
                         onSelectAll = {
 
                             selectedPhones =
-                                selectedPhones + recipients.map {
-                                    it.phone
-                                }.toSet()
+                                selectedPhones +
+                                    recipients
+                                        .map {
+                                            it.phone
+                                        }
+                                        .toSet()
                         },
 
                         onDeselectAll = {
 
-                            selectedPhones = emptySet()
+                            selectedPhones =
+                                emptySet()
                         },
 
                         onDelete = { recipient ->
 
                             recipients =
                                 recipients.filterNot {
-                                    it.phone == recipient.phone
+                                    it.phone ==
+                                        recipient.phone
                                 }
 
                             selectedPhones =
-                                selectedPhones - recipient.phone
+                                selectedPhones -
+                                    recipient.phone
+                        },
+
+                        onEdit = { recipient ->
+
+                            editingRecipient =
+                                recipient
+
+                            editName =
+                                recipient.name
+
+                            editPhone =
+                                recipient.phone
+
+                            showEditDialog =
+                                true
                         },
 
                         onAdd = {
-                            showAddDialog = true
+
+                            newName = ""
+                            newPhone = ""
+
+                            showAddDialog =
+                                true
                         },
 
                         onImportExcel = {
@@ -350,37 +448,56 @@ fun SmsManagerApp() {
 
                     SendScreen(
                         recipientCount =
-                            if (selectedPhones.isNotEmpty()) {
+                            if (
+                                selectedPhones.isNotEmpty()
+                            ) {
+
                                 selectedPhones.size
+
                             } else {
+
                                 recipients.size
                             },
 
-                        messageText = messageText,
+                        messageText =
+                            messageText,
 
                         onMessageChange = {
                             messageText = it
                         },
 
-                        statusMessage = statusMessage,
+                        statusMessage =
+                            statusMessage,
 
                         onSend = {
 
                             val targets =
-                                if (selectedPhones.isNotEmpty()) {
+
+                                if (
+                                    selectedPhones.isNotEmpty()
+                                ) {
+
                                     recipients.filter {
-                                        selectedPhones.contains(it.phone)
+                                        selectedPhones.contains(
+                                            it.phone
+                                        )
                                     }
+
                                 } else {
+
                                     recipients
                                 }
 
-                            if (messageText.isBlank()) {
+                            if (
+                                messageText.isBlank()
+                            ) {
 
                                 statusMessage =
                                     "يرجى كتابة الرسالة أولاً"
 
-                            } else if (targets.isEmpty()) {
+                            } else if (
+                                targets.isEmpty()
+                            ) {
 
                                 statusMessage =
                                     "لا يوجد مستلمون"
@@ -392,8 +509,11 @@ fun SmsManagerApp() {
                                     val smsManager =
                                         SmsManager.getDefault()
 
-                                    var successCount = 0
-                                    var failedCount = 0
+                                    var successCount =
+                                        0
+
+                                    var failedCount =
+                                        0
 
                                     targets.forEach { recipient ->
 
@@ -418,7 +538,7 @@ fun SmsManagerApp() {
                                     statusMessage =
                                         "تم الإرسال: $successCount | فشل: $failedCount"
 
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
 
                                     statusMessage =
                                         "حدث خطأ أثناء الإرسال"
@@ -435,6 +555,10 @@ fun SmsManagerApp() {
             }
         }
     }
+
+    /*
+     * نافذة إضافة مستلم
+     */
 
     if (showAddDialog) {
 
@@ -454,33 +578,47 @@ fun SmsManagerApp() {
 
                     OutlinedTextField(
                         value = newName,
+
                         onValueChange = {
                             newName = it
                         },
+
                         label = {
                             Text("اسم المستلم")
                         },
-                        modifier = Modifier.fillMaxWidth(),
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
                         singleLine = true
                     )
 
                     Spacer(
-                        modifier = Modifier.height(12.dp)
+                        modifier =
+                            Modifier.height(12.dp)
                     )
 
                     OutlinedTextField(
                         value = newPhone,
+
                         onValueChange = {
                             newPhone = it
                         },
+
                         label = {
                             Text("رقم الهاتف")
                         },
-                        modifier = Modifier.fillMaxWidth(),
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Phone
-                        )
+
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType =
+                                    KeyboardType.Phone
+                            )
                     )
                 }
             },
@@ -497,18 +635,24 @@ fun SmsManagerApp() {
                         ) {
 
                             recipients =
-                                recipients + Recipient(
-                                    name = newName.trim(),
-                                    phone = newPhone.trim()
-                                )
+                                recipients +
+                                    Recipient(
+                                        name =
+                                            newName.trim(),
+
+                                        phone =
+                                            newPhone.trim()
+                                    )
 
                             newName = ""
                             newPhone = ""
 
-                            showAddDialog = false
+                            showAddDialog =
+                                false
                         }
                     }
                 ) {
+
                     Text("إضافة")
                 }
             },
@@ -520,6 +664,177 @@ fun SmsManagerApp() {
                         showAddDialog = false
                     }
                 ) {
+
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    /*
+     * نافذة تعديل مستلم
+     */
+
+    if (showEditDialog) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+
+                showEditDialog =
+                    false
+
+                editingRecipient =
+                    null
+            },
+
+            title = {
+
+                Text("تعديل بيانات المستلم")
+            },
+
+            text = {
+
+                Column {
+
+                    OutlinedTextField(
+                        value = editName,
+
+                        onValueChange = {
+                            editName = it
+                        },
+
+                        label = {
+                            Text("اسم المستلم")
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        singleLine = true
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = editPhone,
+
+                        onValueChange = {
+                            editPhone = it
+                        },
+
+                        label = {
+                            Text("رقم الهاتف")
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        singleLine = true,
+
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType =
+                                    KeyboardType.Phone
+                            )
+                    )
+                }
+            },
+
+            confirmButton = {
+
+                TextButton(
+
+                    onClick = {
+
+                        val oldRecipient =
+                            editingRecipient
+
+                        if (
+                            oldRecipient != null &&
+                            editName.isNotBlank() &&
+                            editPhone.isNotBlank()
+                        ) {
+
+                            val oldPhone =
+                                oldRecipient.phone
+
+                            val updatedRecipient =
+                                Recipient(
+                                    name =
+                                        editName.trim(),
+
+                                    phone =
+                                        editPhone.trim()
+                                )
+
+                            recipients =
+                                recipients.map {
+
+                                    if (
+                                        it.phone ==
+                                            oldPhone
+                                    ) {
+
+                                        updatedRecipient
+
+                                    } else {
+
+                                        it
+                                    }
+                                }
+
+                            /*
+                             * إذا تغير رقم الهاتف وكان
+                             * المستلم محدداً، ننقل التحديد
+                             * إلى الرقم الجديد.
+                             */
+
+                            if (
+                                selectedPhones.contains(
+                                    oldPhone
+                                )
+                            ) {
+
+                                selectedPhones =
+                                    selectedPhones
+                                        .filterNot {
+                                            it == oldPhone
+                                        }
+                                        .toSet() +
+                                        editPhone.trim()
+                            }
+
+                            showEditDialog =
+                                false
+
+                            editingRecipient =
+                                null
+                        }
+                    }
+                ) {
+
+                    Text("حفظ")
+                }
+            },
+
+            dismissButton = {
+
+                TextButton(
+
+                    onClick = {
+
+                        showEditDialog =
+                            false
+
+                        editingRecipient =
+                            null
+                    }
+                ) {
+
                     Text("إلغاء")
                 }
             }
@@ -539,42 +854,59 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
     ) {
 
         Text(
             text = "مرحباً بك في Faraj SMS",
-            style = MaterialTheme.typography.headlineSmall
+
+            style =
+                MaterialTheme.typography.headlineSmall
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            shape =
+                RoundedCornerShape(16.dp)
         ) {
 
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier =
+                    Modifier.padding(20.dp),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
             ) {
 
                 Text(
                     text = "إدارة الرسائل النصية",
-                    style = MaterialTheme.typography.titleLarge
+
+                    style =
+                        MaterialTheme.typography.titleLarge
                 )
 
                 Text(
-                    text = "عدد المستلمين: $recipientsCount"
+                    text =
+                        "عدد المستلمين: $recipientsCount"
                 )
 
                 Text(
-                    text = "المحدد حالياً: $selectedCount"
+                    text =
+                        "المحدد حالياً: $selectedCount"
                 )
             }
         }
 
         Button(
-            onClick = onOpenRecipients,
-            modifier = Modifier.fillMaxWidth()
+            onClick =
+                onOpenRecipients,
+
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Icon(
@@ -583,15 +915,19 @@ fun HomeScreen(
             )
 
             Spacer(
-                modifier = Modifier.padding(4.dp)
+                modifier =
+                    Modifier.padding(4.dp)
             )
 
             Text("إدارة المستلمين")
         }
 
         Button(
-            onClick = onOpenSend,
-            modifier = Modifier.fillMaxWidth()
+            onClick =
+                onOpenSend,
+
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Icon(
@@ -600,7 +936,8 @@ fun HomeScreen(
             )
 
             Spacer(
-                modifier = Modifier.padding(4.dp)
+                modifier =
+                    Modifier.padding(4.dp)
             )
 
             Text("إرسال رسالة")
@@ -616,6 +953,7 @@ fun RecipientsScreen(
     onSelectAll: () -> Unit,
     onDeselectAll: () -> Unit,
     onDelete: (Recipient) -> Unit,
+    onEdit: (Recipient) -> Unit,
     onAdd: () -> Unit,
     onImportExcel: () -> Unit
 ) {
@@ -625,7 +963,10 @@ fun RecipientsScreen(
     }
 
     val filteredRecipients =
-        remember(recipients, searchQuery) {
+        remember(
+            recipients,
+            searchQuery
+        ) {
 
             if (searchQuery.isBlank()) {
 
@@ -650,9 +991,11 @@ fun RecipientsScreen(
 
     val allVisibleSelected =
         filteredRecipients.isNotEmpty() &&
-                filteredRecipients.all {
-                    selectedPhones.contains(it.phone)
-                }
+            filteredRecipients.all {
+                selectedPhones.contains(
+                    it.phone
+                )
+            }
 
     Column(
         modifier = Modifier
@@ -662,21 +1005,28 @@ fun RecipientsScreen(
 
         OutlinedTextField(
             value = searchQuery,
+
             onValueChange = {
                 searchQuery = it
             },
+
             label = {
                 Text("البحث عن اسم أو رقم")
             },
+
             leadingIcon = {
+
                 Icon(
                     Icons.Default.Search,
                     contentDescription = null
                 )
             },
+
             trailingIcon = {
 
-                if (searchQuery.isNotEmpty()) {
+                if (
+                    searchQuery.isNotEmpty()
+                ) {
 
                     IconButton(
                         onClick = {
@@ -686,75 +1036,109 @@ fun RecipientsScreen(
 
                         Icon(
                             Icons.Default.Clear,
-                            contentDescription = "مسح البحث"
+                            contentDescription =
+                                "مسح البحث"
                         )
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+
+            modifier =
+                Modifier.fillMaxWidth(),
+
             singleLine = true
         )
 
         Spacer(
-            modifier = Modifier.height(12.dp)
+            modifier =
+                Modifier.height(12.dp)
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Column(
-                modifier = Modifier.padding(12.dp)
+                modifier =
+                    Modifier.padding(12.dp)
             ) {
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    horizontalArrangement =
+                        Arrangement.SpaceBetween,
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
 
                     Text(
-                        text = "المحدد: ${selectedPhones.size}"
+                        text =
+                            "المحدد: ${selectedPhones.size}"
                     )
 
                     Text(
-                        text = "إجمالي: ${recipients.size}"
+                        text =
+                            "إجمالي: ${recipients.size}"
                     )
                 }
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
                 ) {
 
                     Button(
                         onClick = {
 
-                            if (allVisibleSelected) {
+                            if (
+                                allVisibleSelected
+                            ) {
+
                                 onDeselectAll()
+
                             } else {
+
                                 onSelectAll()
                             }
                         },
-                        modifier = Modifier.weight(1f)
+
+                        modifier =
+                            Modifier.weight(1f)
                     ) {
 
                         Text(
-                            if (allVisibleSelected) {
+
+                            if (
+                                allVisibleSelected
+                            ) {
+
                                 "إلغاء تحديد الكل"
+
                             } else {
+
                                 "تحديد الكل"
                             }
                         )
                     }
 
                     OutlinedButton(
-                        onClick = onDeselectAll,
-                        modifier = Modifier.weight(1f)
+                        onClick =
+                            onDeselectAll,
+
+                        modifier =
+                            Modifier.weight(1f)
                     ) {
 
                         Text("إلغاء الكل")
@@ -764,17 +1148,24 @@ fun RecipientsScreen(
         }
 
         Spacer(
-            modifier = Modifier.height(12.dp)
+            modifier =
+                Modifier.height(12.dp)
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
         ) {
 
             Button(
-                onClick = onImportExcel,
-                modifier = Modifier.weight(1f)
+                onClick =
+                    onImportExcel,
+
+                modifier =
+                    Modifier.weight(1f)
             ) {
 
                 Icon(
@@ -783,15 +1174,19 @@ fun RecipientsScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.padding(3.dp)
+                    modifier =
+                        Modifier.padding(3.dp)
                 )
 
                 Text("Excel")
             }
 
             Button(
-                onClick = onAdd,
-                modifier = Modifier.weight(1f)
+                onClick =
+                    onAdd,
+
+                modifier =
+                    Modifier.weight(1f)
             ) {
 
                 Icon(
@@ -800,7 +1195,8 @@ fun RecipientsScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.padding(3.dp)
+                    modifier =
+                        Modifier.padding(3.dp)
                 )
 
                 Text("إضافة")
@@ -808,24 +1204,32 @@ fun RecipientsScreen(
         }
 
         Spacer(
-            modifier = Modifier.height(8.dp)
+            modifier =
+                Modifier.height(8.dp)
         )
 
         Text(
-            text = "نتائج البحث: ${filteredRecipients.size}",
-            style = MaterialTheme.typography.bodyMedium
+            text =
+                "نتائج البحث: ${filteredRecipients.size}",
+
+            style =
+                MaterialTheme.typography.bodyMedium
         )
 
         Spacer(
-            modifier = Modifier.height(8.dp)
+            modifier =
+                Modifier.height(8.dp)
         )
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier =
+                Modifier.fillMaxSize()
         ) {
 
             items(
-                items = filteredRecipients,
+                items =
+                    filteredRecipients,
+
                 key = {
                     it.phone
                 }
@@ -834,22 +1238,30 @@ fun RecipientsScreen(
                 ListItem(
 
                     headlineContent = {
-                        Text(recipient.name)
+
+                        Text(
+                            recipient.name
+                        )
                     },
 
                     supportingContent = {
-                        Text(recipient.phone)
+
+                        Text(
+                            recipient.phone
+                        )
                     },
 
                     leadingContent = {
 
                         Checkbox(
+
                             checked =
                                 selectedPhones.contains(
                                     recipient.phone
                                 ),
 
                             onCheckedChange = {
+
                                 onToggleSelection(
                                     recipient.phone
                                 )
@@ -859,16 +1271,37 @@ fun RecipientsScreen(
 
                     trailingContent = {
 
-                        IconButton(
-                            onClick = {
-                                onDelete(recipient)
-                            }
-                        ) {
+                        Row {
 
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "حذف"
-                            )
+                            IconButton(
+                                onClick = {
+                                    onEdit(
+                                        recipient
+                                    )
+                                }
+                            ) {
+
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription =
+                                        "تعديل"
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    onDelete(
+                                        recipient
+                                    )
+                                }
+                            ) {
+
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription =
+                                        "حذف"
+                                )
+                            }
                         }
                     }
                 )
@@ -887,53 +1320,73 @@ fun SendScreen(
 ) {
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
     ) {
 
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier =
+                    Modifier.padding(16.dp)
             ) {
 
                 Text(
-                    text = "إرسال رسالة",
-                    style = MaterialTheme.typography.titleLarge
+                    text =
+                        "إرسال رسالة",
+
+                    style =
+                        MaterialTheme.typography.titleLarge
                 )
 
                 Spacer(
-                    modifier = Modifier.height(6.dp)
+                    modifier =
+                        Modifier.height(6.dp)
                 )
 
                 Text(
-                    text = "عدد المستلمين: $recipientCount"
+                    text =
+                        "عدد المستلمين: $recipientCount"
                 )
 
                 Text(
-                    text = "الشريحة المستخدمة حالياً: SIM 1"
+                    text =
+                        "الشريحة المستخدمة حالياً: SIM 1"
                 )
             }
         }
 
         OutlinedTextField(
-            value = messageText,
-            onValueChange = onMessageChange,
+            value =
+                messageText,
+
+            onValueChange =
+                onMessageChange,
+
             label = {
                 Text("نص الرسالة")
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
+
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
         )
 
         Button(
-            onClick = onSend,
-            modifier = Modifier.fillMaxWidth()
+            onClick =
+                onSend,
+
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Icon(
@@ -942,21 +1395,28 @@ fun SendScreen(
             )
 
             Spacer(
-                modifier = Modifier.padding(4.dp)
+                modifier =
+                    Modifier.padding(4.dp)
             )
 
             Text("إرسال الآن")
         }
 
-        if (statusMessage.isNotBlank()) {
+        if (
+            statusMessage.isNotBlank()
+        ) {
 
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
 
                 Text(
-                    text = statusMessage,
-                    modifier = Modifier.padding(16.dp)
+                    text =
+                        statusMessage,
+
+                    modifier =
+                        Modifier.padding(16.dp)
                 )
             }
         }
@@ -967,17 +1427,20 @@ fun SendScreen(
 fun HistoryScreen() {
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp)
     ) {
 
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Column(
-                modifier = Modifier.padding(20.dp)
+                modifier =
+                    Modifier.padding(20.dp)
             ) {
 
                 Icon(
@@ -986,20 +1449,26 @@ fun HistoryScreen() {
                 )
 
                 Spacer(
-                    modifier = Modifier.height(8.dp)
+                    modifier =
+                        Modifier.height(8.dp)
                 )
 
                 Text(
-                    text = "سجل الرسائل",
-                    style = MaterialTheme.typography.titleLarge
+                    text =
+                        "سجل الرسائل",
+
+                    style =
+                        MaterialTheme.typography.titleLarge
                 )
 
                 Spacer(
-                    modifier = Modifier.height(8.dp)
+                    modifier =
+                        Modifier.height(8.dp)
                 )
 
                 Text(
-                    text = "سيتم تطوير سجل الإرسال التفصيلي في المرحلة 7."
+                    text =
+                        "سيتم تطوير سجل الإرسال التفصيلي في المرحلة 7."
                 )
             }
         }
