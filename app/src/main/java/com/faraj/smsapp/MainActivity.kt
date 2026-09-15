@@ -121,6 +121,13 @@ fun SmsManagerApp() {
         )
     }
 
+    /*
+     * أرقام المستلمين المحددين
+     */
+    var selectedPhones by remember {
+        mutableStateOf(setOf<String>())
+    }
+
     var sent by remember {
         mutableStateOf(0)
     }
@@ -173,6 +180,13 @@ fun SmsManagerApp() {
 
                     recipients =
                         importedRecipients
+
+                    /*
+                     * عند استيراد قائمة جديدة
+                     * نلغي التحديد القديم
+                     */
+                    selectedPhones =
+                        emptySet()
 
                     importStatus =
                         "تم استيراد ${importedRecipients.size} مستلم بنجاح"
@@ -370,6 +384,29 @@ fun SmsManagerApp() {
                             recipients =
                                 recipients,
 
+                            selectedPhones =
+                                selectedPhones,
+
+                            onToggleSelection = {
+                                phone ->
+
+                                selectedPhones =
+                                    if (
+                                        selectedPhones.contains(
+                                            phone
+                                        )
+                                    ) {
+
+                                        selectedPhones -
+                                            phone
+
+                                    } else {
+
+                                        selectedPhones +
+                                            phone
+                                    }
+                            },
+
                             onAdd = {
                                 showAdd = true
                             },
@@ -396,6 +433,10 @@ fun SmsManagerApp() {
                                         it.phone ==
                                             recipient.phone
                                     }
+
+                                selectedPhones =
+                                    selectedPhones -
+                                        recipient.phone
                             }
                         )
                     }
@@ -416,7 +457,16 @@ fun SmsManagerApp() {
                             },
 
                             recipientCount =
-                                recipients.size,
+                                if (
+                                    selectedPhones.isNotEmpty()
+                                ) {
+
+                                    selectedPhones.size
+
+                                } else {
+
+                                    recipients.size
+                                },
 
                             status =
                                 status,
@@ -432,6 +482,29 @@ fun SmsManagerApp() {
 
                                 } else {
 
+                                    /*
+                                     * إذا كان هناك تحديد،
+                                     * نرسل للمحدد فقط.
+                                     *
+                                     * إذا لم يوجد تحديد،
+                                     * نرسل للجميع.
+                                     */
+                                    val targets =
+                                        if (
+                                            selectedPhones.isNotEmpty()
+                                        ) {
+
+                                            recipients.filter {
+                                                selectedPhones.contains(
+                                                    it.phone
+                                                )
+                                            }
+
+                                        } else {
+
+                                            recipients
+                                        }
+
                                     var ok = 0
                                     var bad = 0
 
@@ -440,7 +513,7 @@ fun SmsManagerApp() {
                                         val sms =
                                             SmsManager.getDefault()
 
-                                        recipients.forEach {
+                                        targets.forEach {
 
                                             try {
 
@@ -778,6 +851,9 @@ fun StatCard(
  *
  * المرحلة 1:
  * البحث عن اسم أو رقم
+ *
+ * المرحلة 2:
+ * تحديد مستلمين محددين
  */
 @Composable
 fun RecipientsScreen(
@@ -785,9 +861,17 @@ fun RecipientsScreen(
     recipients:
         List<Recipient>,
 
-    onAdd: () -> Unit,
+    selectedPhones:
+        Set<String>,
 
-    onImportExcel: () -> Unit,
+    onToggleSelection:
+        (String) -> Unit,
+
+    onAdd:
+        () -> Unit,
+
+    onImportExcel:
+        () -> Unit,
 
     importStatus:
         String,
@@ -806,8 +890,8 @@ fun RecipientsScreen(
 
 
     /*
-     * تصفية المستلمين حسب:
-     * الاسم أو رقم الهاتف
+     * تصفية المستلمين
+     * حسب الاسم أو الرقم
      */
     val filteredRecipients =
         remember(
@@ -823,7 +907,8 @@ fun RecipientsScreen(
 
             } else {
 
-                recipients.filter { recipient ->
+                recipients.filter {
+                    recipient ->
 
                     recipient.name.contains(
                         searchQuery,
@@ -1002,25 +1087,42 @@ fun RecipientsScreen(
 
 
         /*
-         * عدد النتائج
+         * معلومات التحديد
          */
-        Text(
+        Card(
 
-            text =
-                if (
-                    searchQuery.isBlank()
-                ) {
+            modifier =
+                Modifier.fillMaxWidth(),
 
-                    "إجمالي المستلمين: ${recipients.size}"
+            shape =
+                RoundedCornerShape(12.dp)
 
-                } else {
+        ) {
 
-                    "نتائج البحث: ${filteredRecipients.size} من ${recipients.size}"
-                },
+            Row(
 
-            style =
-                MaterialTheme.typography.bodyMedium
-        )
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+
+                verticalAlignment =
+                    Alignment.CenterVertically
+
+            ) {
+
+                Text(
+                    "المحدد: ${selectedPhones.size}"
+                )
+
+                Text(
+                    "إجمالي: ${recipients.size}"
+                )
+            }
+        }
 
 
         Spacer(
@@ -1029,7 +1131,7 @@ fun RecipientsScreen(
 
 
         /*
-         * حالة استيراد Excel
+         * حالة الاستيراد
          */
         if (
             importStatus.isNotBlank()
@@ -1070,7 +1172,7 @@ fun RecipientsScreen(
                 Modifier.fillMaxSize(),
 
             verticalArrangement =
-                Arrangement.spacedBy(8.dp)
+                Arrangement.spacedBy(4.dp)
         ) {
 
             items(
@@ -1103,10 +1205,19 @@ fun RecipientsScreen(
 
                     leadingContent = {
 
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription =
-                                null
+                        Checkbox(
+
+                            checked =
+                                selectedPhones.contains(
+                                    recipient.phone
+                                ),
+
+                            onCheckedChange = {
+
+                                onToggleSelection(
+                                    recipient.phone
+                                )
+                            }
                         )
                     },
 
@@ -1129,7 +1240,10 @@ fun RecipientsScreen(
                                     "حذف"
                             )
                         }
-                    }
+                    },
+
+                    modifier =
+                        Modifier.fillMaxWidth()
                 )
 
 
