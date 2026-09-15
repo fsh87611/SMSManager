@@ -132,6 +132,8 @@ fun readCsvFile(
 ): List<Recipient> {
 
     val recipients = mutableListOf<Recipient>()
+    val usedPhones = mutableSetOf<String>()
+    val usedPhones = mutableSetOf<String>()
 
     try {
         context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { reader ->
@@ -144,7 +146,7 @@ fun readCsvFile(
                     val name = columns[0].trim().trim('"')
                     val phone = columns[1].trim().trim('"')
 
-                    if (name.isNotBlank() && phone.isNotBlank()) {
+                    if (name.isNotBlank() && phone.isNotBlank() && usedPhones.add(phone)) {
                         recipients.add(Recipient(name = name, phone = phone))
                     }
                 }
@@ -163,6 +165,7 @@ fun readExcelFile(
 ): List<Recipient> {
 
     val recipients = mutableListOf<Recipient>()
+    val usedPhones = mutableSetOf<String>()
 
     try {
 
@@ -188,7 +191,7 @@ fun readExcelFile(
                     row.getCell(1)?.toString()?.trim() ?: ""
 
                 if (
-                    name.isNotBlank() &&
+                    name.isNotBlank() && usedPhones.add(phone) &&
                     phone.isNotBlank()
                 ) {
 
