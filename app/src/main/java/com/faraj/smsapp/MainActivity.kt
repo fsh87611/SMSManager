@@ -1,10 +1,15 @@
 package com.faraj.smsapp
 
 import android.Manifest
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.telephony.SmsManager
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
@@ -78,6 +83,10 @@ import androidx.core.content.ContextCompat
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
 import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 
 data class Recipient(
@@ -90,6 +99,17 @@ data class SimCard(
     val subscriptionId: Int,
     val displayName: String,
     val slotIndex: Int
+)
+
+
+data class MessageLog(
+    val id: Long,
+    val recipientName: String,
+    val recipientPhone: String,
+    val status: String,
+    val time: String,
+    val simName: String,
+    val message: String
 )
 
 
@@ -219,6 +239,20 @@ fun getAvailableSimCards(
     return result.sortedBy {
         it.slotIndex
     }
+}
+
+
+fun currentTime(): String {
+
+    val formatter =
+        SimpleDateFormat(
+            "yyyy/MM/dd HH:mm:ss",
+            Locale.getDefault()
+        )
+
+    return formatter.format(
+        Date()
+    )
 }
 
 
@@ -355,6 +389,11 @@ fun SmsManagerApp() {
 
     var statusMessage by remember {
         mutableStateOf("")
+    }
+
+
+    var messageLogs by remember {
+        mutableStateOf(listOf<MessageLog>())
     }
 
 
@@ -851,11 +890,29 @@ fun SmsManagerApp() {
                                                 )
 
 
+                                        val selectedSim =
+                                            simCards.find {
+
+                                                it.subscriptionId ==
+                                                    selectedSimId
+                                            }
+
+
+                                        val simName =
+                                            selectedSim
+                                                ?.displayName
+                                                ?: "الشريحة المحددة"
+
+
                                         var successCount =
                                             0
 
                                         var failedCount =
                                             0
+
+
+                                        val newLogs =
+                                            mutableListOf<MessageLog>()
 
 
                                         targets.forEach { recipient ->
@@ -887,27 +944,73 @@ fun SmsManagerApp() {
                                                 successCount++
 
 
+                                                newLogs.add(
+
+                                                    MessageLog(
+
+                                                        id =
+                                                            System.nanoTime(),
+
+                                                        recipientName =
+                                                            recipient.name,
+
+                                                        recipientPhone =
+                                                            recipient.phone,
+
+                                                        status =
+                                                            "نجاح",
+
+                                                        time =
+                                                            currentTime(),
+
+                                                        simName =
+                                                            simName,
+
+                                                        message =
+                                                            messageText
+                                                    )
+                                                )
+
+
                                             } catch (
-                                                _: Exception
+                                                exception: Exception
                                             ) {
 
                                                 failedCount++
+
+
+                                                newLogs.add(
+
+                                                    MessageLog(
+
+                                                        id =
+                                                            System.nanoTime(),
+
+                                                        recipientName =
+                                                            recipient.name,
+
+                                                        recipientPhone =
+                                                            recipient.phone,
+
+                                                        status =
+                                                            "فشل",
+
+                                                        time =
+                                                            currentTime(),
+
+                                                        simName =
+                                                            simName,
+
+                                                        message =
+                                                            messageText
+                                                    )
+                                                )
                                             }
                                         }
 
 
-                                        val selectedSim =
-                                            simCards.find {
-
-                                                it.subscriptionId ==
-                                                    selectedSimId
-                                            }
-
-
-                                        val simName =
-                                            selectedSim
-                                                ?.displayName
-                                                ?: "الشريحة المحددة"
+                                        messageLogs =
+                                            newLogs + messageLogs
 
 
                                         statusMessage =
@@ -931,7 +1034,17 @@ fun SmsManagerApp() {
 
                 3 -> {
 
-                    HistoryScreen()
+                    HistoryScreen(
+
+                        logs =
+                            messageLogs,
+
+                        onClearHistory = {
+
+                            messageLogs =
+                                emptyList()
+                        }
+                    )
                 }
             }
         }
@@ -2212,7 +2325,13 @@ fun SendScreen(
 
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(
+
+    logs: List<MessageLog>,
+
+    onClearHistory: () -> Unit
+
+) {
 
 
     Column(
@@ -2221,60 +2340,191 @@ fun HistoryScreen() {
 
             Modifier
                 .fillMaxSize()
-                .padding(20.dp)
+                .padding(16.dp)
     ) {
 
 
-        Card(
+        Row(
 
             modifier =
-                Modifier.fillMaxWidth()
+                Modifier.fillMaxWidth(),
+
+            horizontalArrangement =
+                Arrangement.SpaceBetween,
+
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
 
-            Column(
+            Text(
+
+                text =
+                    "سجل الرسائل",
+
+                style =
+                    MaterialTheme.typography.headlineSmall
+            )
+
+
+            if (logs.isNotEmpty()) {
+
+                TextButton(
+
+                    onClick =
+                        onClearHistory
+
+                ) {
+
+                    Text(
+                        "مسح السجل"
+                    )
+                }
+            }
+        }
+
+
+        Spacer(
+            modifier =
+                Modifier.height(8.dp)
+        )
+
+
+        if (logs.isEmpty()) {
+
+
+            Card(
 
                 modifier =
-                    Modifier.padding(20.dp)
+                    Modifier.fillMaxWidth()
             ) {
 
 
-                Icon(
-
-                    Icons.Default.History,
-
-                    contentDescription =
-                        null
-                )
-
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-
                 Text(
 
                     text =
-                        "سجل الرسائل",
+                        "لا توجد عمليات إرسال مسجلة حالياً.",
 
-                    style =
-                        MaterialTheme.typography.titleLarge
-                )
-
-
-                Spacer(
                     modifier =
-                        Modifier.height(8.dp)
+                        Modifier.padding(20.dp)
                 )
+            }
 
 
-                Text(
+        } else {
 
-                    text =
-                        "سيتم تطوير سجل الإرسال التفصيلي في المرحلة 7."
-                )
+
+            Text(
+
+                text =
+                    "إجمالي العمليات: ${logs.size}",
+
+                style =
+                    MaterialTheme.typography.bodyMedium
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
+
+
+            LazyColumn(
+
+                modifier =
+                    Modifier.fillMaxSize(),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+
+            ) {
+
+
+                items(
+
+                    items =
+                        logs,
+
+                    key = {
+                        it.id
+                    }
+
+                ) { log ->
+
+
+                    Card(
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        shape =
+                            RoundedCornerShape(12.dp)
+                    ) {
+
+
+                        Column(
+
+                            modifier =
+                                Modifier.padding(14.dp),
+
+                            verticalArrangement =
+                                Arrangement.spacedBy(5.dp)
+                        ) {
+
+
+                            Row(
+
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+
+                                horizontalArrangement =
+                                    Arrangement.SpaceBetween
+                            ) {
+
+
+                                Text(
+
+                                    text =
+                                        log.recipientName,
+
+                                    style =
+                                        MaterialTheme.typography.titleMedium
+                                )
+
+
+                                Text(
+                                    text =
+                                        log.status
+                                )
+                            }
+
+
+                            Text(
+                                text =
+                                    "الهاتف: ${log.recipientPhone}"
+                            )
+
+
+                            Text(
+                                text =
+                                    "الوقت: ${log.time}"
+                            )
+
+
+                            Text(
+                                text =
+                                    "الشريحة: ${log.simName}"
+                            )
+
+
+                            Text(
+                                text =
+                                    "الرسالة: ${log.message}"
+                            )
+                        }
+                    }
+                }
             }
         }
     }
