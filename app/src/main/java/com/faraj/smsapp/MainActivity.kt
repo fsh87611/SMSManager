@@ -355,6 +355,7 @@ fun recipientsFromJson(
                         item.optString("phone")
                 )
             )
+        },
         }
 
     } catch (_: Exception) {
@@ -456,6 +457,7 @@ fun messageLogsFromJson(
                         item.optString("message")
                 )
             )
+        },
         }
 
     } catch (_: Exception) {
@@ -494,6 +496,7 @@ class MainActivity : ComponentActivity() {
             requestSmsPermission.launch(
                 Manifest.permission.SEND_SMS
             )
+        },
         }
 
 
@@ -507,6 +510,7 @@ class MainActivity : ComponentActivity() {
             requestPhoneStatePermission.launch(
                 Manifest.permission.READ_PHONE_STATE
             )
+        },
         }
 
 
@@ -547,6 +551,7 @@ fun SmsManagerApp() {
                 "سارة محمود",
                 "0592222222"
             )
+        },
         )
 
 
@@ -784,7 +789,16 @@ fun SmsManagerApp() {
             androidx.compose.material3.TopAppBar(
 
                 title = {
-                    Text("Faraj SMS")
+                    Column {
+                        Text(
+                            "Faraj SMS",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            "نظام الرسائل الجماعية",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             )
         },
@@ -1768,17 +1782,20 @@ fun HomeScreen(
                 contentDescription =
                     null
             )
+        },
 
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
+        },
 
 
             Text(
                 "إدارة المستلمين"
             )
+        },
         }
 
 
@@ -1798,17 +1815,20 @@ fun HomeScreen(
                 contentDescription =
                     null
             )
+        },
 
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
+        },
 
 
             Text(
                 "إرسال رسالة"
             )
+        },
         }
     }
 }
@@ -2553,17 +2573,20 @@ fun SendScreen(
                 contentDescription =
                     null
             )
+        },
 
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
+        },
 
 
             Text(
                 "إرسال الآن"
             )
+        },
         }
 
 
@@ -2629,6 +2652,7 @@ fun HistoryScreen(
                 style =
                     MaterialTheme.typography.headlineSmall
             )
+        },
 
 
             if (logs.isNotEmpty()) {
@@ -2682,12 +2706,14 @@ fun HistoryScreen(
                 style =
                     MaterialTheme.typography.bodyMedium
             )
+        },
 
 
             Spacer(
                 modifier =
                     Modifier.height(8.dp)
             )
+        },
 
 
             LazyColumn(
