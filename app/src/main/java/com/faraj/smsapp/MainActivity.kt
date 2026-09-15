@@ -1,15 +1,11 @@
+
 package com.faraj.smsapp
 
 import android.Manifest
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.os.SystemClock
 import android.telephony.SmsManager
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
@@ -80,13 +76,29 @@ import androidx.compose.ui.unit.dp
 
 import androidx.core.content.ContextCompat
 
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.json.JSONArray
+import org.json.JSONObject
 
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicInteger
+
+
+private val Context.smsDataStore by preferencesDataStore(
+    name = "faraj_sms_data"
+)
+
+private val RECIPIENTS_KEY =
+    stringPreferencesKey("recipients")
+
+private val MESSAGE_LOGS_KEY =
+    stringPreferencesKey("message_logs")
 
 
 data class Recipient(
@@ -256,6 +268,167 @@ fun currentTime(): String {
 }
 
 
+fun recipientsToJson(
+    recipients: List<Recipient>
+): String {
+
+    val array = JSONArray()
+
+    recipients.forEach { recipient ->
+
+        val objectItem = JSONObject()
+
+        objectItem.put(
+            "name",
+            recipient.name
+        )
+
+        objectItem.put(
+            "phone",
+            recipient.phone
+        )
+
+        array.put(objectItem)
+    }
+
+    return array.toString()
+}
+
+
+fun recipientsFromJson(
+    json: String
+): List<Recipient> {
+
+    val result = mutableListOf<Recipient>()
+
+    try {
+
+        val array =
+            JSONArray(json)
+
+        for (index in 0 until array.length()) {
+
+            val item =
+                array.getJSONObject(index)
+
+            result.add(
+                Recipient(
+                    name =
+                        item.optString("name"),
+                    phone =
+                        item.optString("phone")
+                )
+            )
+        }
+
+    } catch (_: Exception) {
+    }
+
+    return result
+}
+
+
+fun messageLogsToJson(
+    logs: List<MessageLog>
+): String {
+
+    val array = JSONArray()
+
+    logs.forEach { log ->
+
+        val objectItem = JSONObject()
+
+        objectItem.put(
+            "id",
+            log.id
+        )
+
+        objectItem.put(
+            "recipientName",
+            log.recipientName
+        )
+
+        objectItem.put(
+            "recipientPhone",
+            log.recipientPhone
+        )
+
+        objectItem.put(
+            "status",
+            log.status
+        )
+
+        objectItem.put(
+            "time",
+            log.time
+        )
+
+        objectItem.put(
+            "simName",
+            log.simName
+        )
+
+        objectItem.put(
+            "message",
+            log.message
+        )
+
+        array.put(objectItem)
+    }
+
+    return array.toString()
+}
+
+
+fun messageLogsFromJson(
+    json: String
+): List<MessageLog> {
+
+    val result = mutableListOf<MessageLog>()
+
+    try {
+
+        val array =
+            JSONArray(json)
+
+        for (index in 0 until array.length()) {
+
+            val item =
+                array.getJSONObject(index)
+
+            result.add(
+                MessageLog(
+                    id =
+                        item.optLong("id"),
+
+                    recipientName =
+                        item.optString("recipientName"),
+
+                    recipientPhone =
+                        item.optString("recipientPhone"),
+
+                    status =
+                        item.optString("status"),
+
+                    time =
+                        item.optString("time"),
+
+                    simName =
+                        item.optString("simName"),
+
+                    message =
+                        item.optString("message")
+                )
+            )
+        }
+
+    } catch (_: Exception) {
+    }
+
+    return result
+}
+
+
 class MainActivity : ComponentActivity() {
 
     private val requestSmsPermission =
@@ -312,33 +485,52 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SmsManagerApp() {
 
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+
+
     var currentPage by remember {
         mutableStateOf(0)
     }
 
 
+    val defaultRecipients =
+        listOf(
+
+            Recipient(
+                "أحمد محمد",
+                "0590000000"
+            ),
+
+            Recipient(
+                "محمد علي",
+                "0591111111"
+            ),
+
+            Recipient(
+                "سارة محمود",
+                "0592222222"
+            )
+        )
+
+
     var recipients by remember {
 
         mutableStateOf(
-
-            listOf(
-
-                Recipient(
-                    "أحمد محمد",
-                    "0590000000"
-                ),
-
-                Recipient(
-                    "محمد علي",
-                    "0591111111"
-                ),
-
-                Recipient(
-                    "سارة محمود",
-                    "0592222222"
-                )
-            )
+            defaultRecipients
         )
+    }
+
+
+    var messageLogs by remember {
+        mutableStateOf(
+            listOf<MessageLog>()
+        )
+    }
+
+
+    var dataLoaded by remember {
+        mutableStateOf(false)
     }
 
 
@@ -392,15 +584,6 @@ fun SmsManagerApp() {
     }
 
 
-    var messageLogs by remember {
-        mutableStateOf(listOf<MessageLog>())
-    }
-
-
-    val context =
-        androidx.compose.ui.platform.LocalContext.current
-
-
     var simCards by remember {
 
         mutableStateOf(
@@ -411,6 +594,100 @@ fun SmsManagerApp() {
 
     var selectedSimId by remember {
         mutableStateOf<Int?>(null)
+    }
+
+
+    /*
+     * تحميل البيانات المحفوظة عند تشغيل التطبيق
+     */
+    LaunchedEffect(Unit) {
+
+        try {
+
+            val preferences =
+                context.smsDataStore.data
+                    .kotlinx.coroutines.flow.first()
+
+            val savedRecipients =
+                preferences[RECIPIENTS_KEY]
+
+            val savedLogs =
+                preferences[MESSAGE_LOGS_KEY]
+
+
+            if (savedRecipients != null) {
+
+                recipients =
+                    recipientsFromJson(
+                        savedRecipients
+                    )
+            }
+
+
+            if (savedLogs != null) {
+
+                messageLogs =
+                    messageLogsFromJson(
+                        savedLogs
+                    )
+            }
+
+        } catch (_: Exception) {
+        }
+
+        dataLoaded = true
+    }
+
+
+    /*
+     * حفظ المستلمين تلقائياً عند أي تغيير
+     */
+    LaunchedEffect(
+        recipients,
+        dataLoaded
+    ) {
+
+        if (dataLoaded) {
+
+            try {
+
+                context.smsDataStore.edit { preferences ->
+
+                    preferences[RECIPIENTS_KEY] =
+                        recipientsToJson(
+                            recipients
+                        )
+                }
+
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+
+    /*
+     * حفظ سجل الرسائل تلقائياً عند أي تغيير
+     */
+    LaunchedEffect(
+        messageLogs,
+        dataLoaded
+    ) {
+
+        if (dataLoaded) {
+
+            try {
+
+                context.smsDataStore.edit { preferences ->
+
+                    preferences[MESSAGE_LOGS_KEY] =
+                        messageLogsToJson(
+                            messageLogs
+                        )
+                }
+
+            } catch (_: Exception) {
+            }
+        }
     }
 
 
@@ -458,7 +735,7 @@ fun SmsManagerApp() {
                     emptySet()
 
                 statusMessage =
-                    "تم استيراد ${importedRecipients.size} مستلم"
+                    "تم استيراد ${importedRecipients.size} مستلم وحفظ البيانات تلقائياً"
             }
         }
 
@@ -588,9 +865,7 @@ fun SmsManagerApp() {
                     .padding(paddingValues)
         ) {
 
-
             when (currentPage) {
-
 
                 0 -> {
 
@@ -865,7 +1140,6 @@ fun SmsManagerApp() {
 
                                 try {
 
-
                                     if (
 
                                         ContextCompat.checkSelfPermission(
@@ -880,7 +1154,6 @@ fun SmsManagerApp() {
                                             "يرجى السماح للتطبيق بإرسال الرسائل"
 
                                     } else {
-
 
                                         val smsManager =
 
@@ -917,9 +1190,7 @@ fun SmsManagerApp() {
 
                                         targets.forEach { recipient ->
 
-
                                             try {
-
 
                                                 val parts =
                                                     smsManager.divideMessage(
@@ -971,9 +1242,8 @@ fun SmsManagerApp() {
                                                     )
                                                 )
 
-
                                             } catch (
-                                                exception: Exception
+                                                _: Exception
                                             ) {
 
                                                 failedCount++
@@ -1018,7 +1288,6 @@ fun SmsManagerApp() {
                                             "تم الإرسال: $successCount | فشل: $failedCount\nالشريحة: $simName"
                                     }
 
-
                                 } catch (
                                     _: Exception
                                 ) {
@@ -1053,7 +1322,6 @@ fun SmsManagerApp() {
 
     if (showAddDialog) {
 
-
         AlertDialog(
 
             onDismissRequest = {
@@ -1071,7 +1339,6 @@ fun SmsManagerApp() {
             text = {
 
                 Column {
-
 
                     OutlinedTextField(
 
@@ -1185,7 +1452,6 @@ fun SmsManagerApp() {
 
     if (showEditDialog) {
 
-
         AlertDialog(
 
             onDismissRequest = {
@@ -1206,7 +1472,6 @@ fun SmsManagerApp() {
             text = {
 
                 Column {
-
 
                     OutlinedTextField(
 
@@ -1282,7 +1547,6 @@ fun SmsManagerApp() {
 
                         ) {
 
-
                             val oldPhone =
                                 oldRecipient.phone
 
@@ -1332,7 +1596,7 @@ fun SmsManagerApp() {
 
                                         .toSet() +
 
-                                        editPhone.trim()
+                                    editPhone.trim()
                             }
 
 
@@ -1385,7 +1649,6 @@ fun HomeScreen(
 
 ) {
 
-
     Column(
 
         modifier =
@@ -1397,7 +1660,6 @@ fun HomeScreen(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-
 
         Text(
 
@@ -1418,7 +1680,6 @@ fun HomeScreen(
                 RoundedCornerShape(16.dp)
         ) {
 
-
             Column(
 
                 modifier =
@@ -1427,7 +1688,6 @@ fun HomeScreen(
                 verticalArrangement =
                     Arrangement.spacedBy(8.dp)
             ) {
-
 
                 Text(
 
@@ -1462,7 +1722,6 @@ fun HomeScreen(
                 Modifier.fillMaxWidth()
         ) {
 
-
             Icon(
 
                 Icons.Default.People,
@@ -1492,7 +1751,6 @@ fun HomeScreen(
             modifier =
                 Modifier.fillMaxWidth()
         ) {
-
 
             Icon(
 
@@ -1539,7 +1797,6 @@ fun RecipientsScreen(
     onImportExcel: () -> Unit
 
 ) {
-
 
     var searchQuery by remember {
         mutableStateOf("")
@@ -1597,7 +1854,6 @@ fun RecipientsScreen(
                 .fillMaxSize()
                 .padding(16.dp)
     ) {
-
 
         OutlinedTextField(
 
@@ -1673,13 +1929,11 @@ fun RecipientsScreen(
                 Modifier.fillMaxWidth()
         ) {
 
-
             Column(
 
                 modifier =
                     Modifier.padding(12.dp)
             ) {
-
 
                 Row(
 
@@ -1692,7 +1946,6 @@ fun RecipientsScreen(
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
-
 
                     Text(
                         text =
@@ -1722,7 +1975,6 @@ fun RecipientsScreen(
                         Arrangement.spacedBy(8.dp)
                 ) {
 
-
                     Button(
 
                         onClick = {
@@ -1742,7 +1994,6 @@ fun RecipientsScreen(
                         modifier =
                             Modifier.weight(1f)
                     ) {
-
 
                         Text(
 
@@ -1793,7 +2044,6 @@ fun RecipientsScreen(
                 Arrangement.spacedBy(8.dp)
         ) {
 
-
             Button(
 
                 onClick =
@@ -1802,7 +2052,6 @@ fun RecipientsScreen(
                 modifier =
                     Modifier.weight(1f)
             ) {
-
 
                 Icon(
 
@@ -1831,7 +2080,6 @@ fun RecipientsScreen(
                 modifier =
                     Modifier.weight(1f)
             ) {
-
 
                 Icon(
 
@@ -1882,7 +2130,6 @@ fun RecipientsScreen(
 
         ) {
 
-
             items(
 
                 items =
@@ -1894,9 +2141,7 @@ fun RecipientsScreen(
 
             ) { recipient ->
 
-
                 ListItem(
-
 
                     headlineContent = {
 
@@ -1936,7 +2181,6 @@ fun RecipientsScreen(
                     trailingContent = {
 
                         Row {
-
 
                             IconButton(
 
@@ -2004,7 +2248,6 @@ fun SendScreen(
 
 ) {
 
-
     var simMenuExpanded by remember {
         mutableStateOf(false)
     }
@@ -2031,20 +2274,17 @@ fun SendScreen(
             Arrangement.spacedBy(16.dp)
     ) {
 
-
         Card(
 
             modifier =
                 Modifier.fillMaxWidth()
         ) {
 
-
             Column(
 
                 modifier =
                     Modifier.padding(16.dp)
             ) {
-
 
                 Text(
 
@@ -2095,20 +2335,17 @@ fun SendScreen(
                     simCards.isEmpty()
                 ) {
 
-
                     Card(
 
                         modifier =
                             Modifier.fillMaxWidth()
                     ) {
 
-
                         Column(
 
                             modifier =
                                 Modifier.padding(12.dp)
                         ) {
-
 
                             Text(
 
@@ -2137,12 +2374,9 @@ fun SendScreen(
                         }
                     }
 
-
                 } else {
 
-
                     Column {
-
 
                         OutlinedButton(
 
@@ -2156,7 +2390,6 @@ fun SendScreen(
                                 Modifier.fillMaxWidth()
 
                         ) {
-
 
                             Text(
 
@@ -2180,9 +2413,7 @@ fun SendScreen(
 
                         ) {
 
-
                             simCards.forEach { sim ->
-
 
                                 DropdownMenuItem(
 
@@ -2276,7 +2507,6 @@ fun SendScreen(
 
         ) {
 
-
             Icon(
 
                 Icons.Default.Send,
@@ -2302,13 +2532,11 @@ fun SendScreen(
             statusMessage.isNotBlank()
         ) {
 
-
             Card(
 
                 modifier =
                     Modifier.fillMaxWidth()
             ) {
-
 
                 Text(
 
@@ -2333,7 +2561,6 @@ fun HistoryScreen(
 
 ) {
 
-
     Column(
 
         modifier =
@@ -2342,7 +2569,6 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(16.dp)
     ) {
-
 
         Row(
 
@@ -2355,7 +2581,6 @@ fun HistoryScreen(
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
-
 
             Text(
 
@@ -2392,13 +2617,11 @@ fun HistoryScreen(
 
         if (logs.isEmpty()) {
 
-
             Card(
 
                 modifier =
                     Modifier.fillMaxWidth()
             ) {
-
 
                 Text(
 
@@ -2410,9 +2633,7 @@ fun HistoryScreen(
                 )
             }
 
-
         } else {
-
 
             Text(
 
@@ -2440,7 +2661,6 @@ fun HistoryScreen(
 
             ) {
 
-
                 items(
 
                     items =
@@ -2452,7 +2672,6 @@ fun HistoryScreen(
 
                 ) { log ->
 
-
                     Card(
 
                         modifier =
@@ -2461,7 +2680,6 @@ fun HistoryScreen(
                         shape =
                             RoundedCornerShape(12.dp)
                     ) {
-
 
                         Column(
 
@@ -2472,7 +2690,6 @@ fun HistoryScreen(
                                 Arrangement.spacedBy(5.dp)
                         ) {
 
-
                             Row(
 
                                 modifier =
@@ -2481,7 +2698,6 @@ fun HistoryScreen(
                                 horizontalArrangement =
                                     Arrangement.SpaceBetween
                             ) {
-
 
                                 Text(
 
