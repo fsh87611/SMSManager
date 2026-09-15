@@ -126,6 +126,37 @@ data class MessageLog(
 )
 
 
+fun readCsvFile(
+    context: Context,
+    uri: Uri
+): List<Recipient> {
+
+    val recipients = mutableListOf<Recipient>()
+
+    try {
+        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+            reader.readLines().drop(1).forEach { line ->
+                if (line.isBlank()) return@forEach
+
+                val columns = line.split(",")
+
+                if (columns.size >= 2) {
+                    val name = columns[0].trim().removeSurrounding(""")
+                    val phone = columns[1].trim().removeSurrounding(""")
+
+                    if (name.isNotBlank() && phone.isNotBlank()) {
+                        recipients.add(Recipient(name = name, phone = phone))
+                    }
+                }
+            }
+        }
+    } catch (_: Exception) {
+    }
+
+    return recipients
+}
+
+
 fun readExcelFile(
     context: Context,
     uri: Uri
@@ -722,12 +753,14 @@ fun SmsManagerApp() {
 
             if (uri != null) {
 
-                val importedRecipients =
-                    readExcelFile(
-                        context,
-                        uri
-                    )
+                val mimeType = context.contentResolver.getType(uri) ?: ""
 
+                val importedRecipients =
+                    if (mimeType == "text/csv" || mimeType == "text/comma-separated-values") {
+                        readCsvFile(context, uri)
+                    } else {
+                        readExcelFile(context, uri)
+                    }
                 recipients =
                     importedRecipients
 
@@ -988,7 +1021,9 @@ fun SmsManagerApp() {
 
                                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
-                                    "application/vnd.ms-excel"
+                                    "application/vnd.ms-excel",
+                                    "text/csv",
+                                    "text/comma-separated-values",
                                 )
                             )
                         }
@@ -2068,7 +2103,7 @@ fun RecipientsScreen(
                 )
 
 
-                Text("Excel")
+                Text("Excel / CSV")
             }
 
 
