@@ -126,6 +126,8 @@ data class MessageLog(
 )
 
 
+fun normalizePhoneNumber(phone: String): String { return phone.trim().replace(" ", "").replace("-", "").replace("(", "").replace(")", "").replace(".", "").replace("٠","0").replace("١","1").replace("٢","2").replace("٣","3").replace("٤","4").replace("٥","5").replace("٦","6").replace("٧","7").replace("٨","8").replace("٩","9") }
+
 fun readCsvFile(
     context: Context,
     uri: Uri
@@ -143,7 +145,7 @@ fun readCsvFile(
 
                 if (columns.size >= 2) {
                     val name = columns[0].trim().trim('"')
-                    val phone = columns[1].trim().trim('"')
+                    val phone = normalizePhoneNumber(columns[1].trim().trim('"') )
 
                     if (name.isNotBlank() && phone.isNotBlank() && usedPhones.add(phone)) {
                         recipients.add(Recipient(name = name, phone = phone))
@@ -187,7 +189,7 @@ fun readExcelFile(
                     row.getCell(0)?.toString()?.trim() ?: ""
 
                 val phone =
-                    row.getCell(1)?.toString()?.trim() ?: ""
+                    normalizePhoneNumber(row.getCell(1)?.toString()?.trim() ?: "")
 
                 if (
                     name.isNotBlank() && usedPhones.add(phone) &&
