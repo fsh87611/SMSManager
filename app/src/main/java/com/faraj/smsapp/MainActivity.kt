@@ -59,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -436,6 +437,27 @@ class MainActivity : ComponentActivity() {
 fun SmsManagerApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var isSending by remember { mutableStateOf(false) }
+    var sendTotal by remember { mutableStateOf(0) }
+    var sendCompleted by remember { mutableStateOf(0) }
+    var sendSuccess by remember { mutableStateOf(0) }
+    var sendFailed by remember { mutableStateOf(0) }
+    var sendStartTime by remember { mutableStateOf(0L) }
+
+    val sendProgress =
+        if (sendTotal > 0) sendCompleted.toFloat() / sendTotal.toFloat() else 0f
+
+    val elapsedSeconds =
+        if (sendStartTime > 0L) {
+            (System.currentTimeMillis() - sendStartTime) / 1000L
+        } else 0L
+
+    val estimatedRemainingSeconds =
+        if (sendCompleted > 0 && elapsedSeconds > 0) {
+            (elapsedSeconds.toDouble() *
+                (sendTotal - sendCompleted).toDouble() /
+                sendCompleted.toDouble()).toLong()
+        } else 0L
 
     var currentPage by remember {
         mutableStateOf(0)
@@ -466,58 +488,7 @@ fun SmsManagerApp() {
     }
 
     var statusMessage by remember {
-    mutableStateOf("")
-}
-
-var isSending by remember {
-    mutableStateOf(false)
-}
-
-var sendTotal by remember {
-    mutableStateOf(0)
-}
-
-var sendCompleted by remember {
-    mutableStateOf(0)
-}
-
-var sendSuccess by remember {
-    mutableStateOf(0)
-}
-
-var sendFailed by remember {
-    mutableStateOf(0)
-}
-
-var sendStartTime by remember {
-    mutableStateOf(0L)
-}
-val sendProgress =
-    if (sendTotal > 0) {
-        sendCompleted.toFloat() / sendTotal.toFloat()
-    } else {
-        0f
-    }
-
-val elapsedSeconds =
-    if (sendStartTime > 0L) {
-        (System.currentTimeMillis() - sendStartTime) / 1000L
-    } else {
-        0L
-    }
-
-val estimatedRemainingSeconds =
-    if (
-        sendCompleted > 0 &&
-        elapsedSeconds > 0
-    ) {
-        (
-            elapsedSeconds.toDouble() *
-                (sendTotal - sendCompleted).toDouble() /
-                sendCompleted.toDouble()
-        ).toLong()
-    } else {
-        0L
+        mutableStateOf("")
     }
 
     var showAddDialog by remember {
@@ -641,7 +612,44 @@ val estimatedRemainingSeconds =
 
         return
     }
+    if (isSending) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = {
+                Text("جاري إرسال الرسائل")
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("تم إرسال $sendCompleted من $sendTotal")
 
+                    LinearProgressIndicator(
+                        progress = { sendProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("${(sendProgress * 100).toInt()}%")
+                    Text("الناجحة: $sendSuccess")
+                    Text("الفاشلة: $sendFailed")
+                    Text("المتبقية: ${sendTotal - sendCompleted}")
+
+                    if (estimatedRemainingSeconds > 0) {
+                        val minutes = estimatedRemainingSeconds / 60
+                        val seconds = estimatedRemainingSeconds % 60
+
+                        Text(
+                            "الوقت المتبقي تقريبًا: " +
+                                "$minutes دقيقة و $seconds ثانية"
+                        )
+                    } else {
+                        Text("جارٍ حساب الوقت المتبقي...")
+                    }
+                }
+            }
+        )
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -884,50 +892,56 @@ val estimatedRemainingSeconds =
                                         "صلاحية إرسال SMS غير مفعلة. فعّل الصلاحية من إعدادات الهاتف."
                                 }
 
-  else -> {
+                                else -> {
 
-    isSending = true
-    sendTotal = targets.size
-    sendCompleted = 0
-    sendSuccess = 0
-    sendFailed = 0
-    sendStartTime = System.currentTimeMillis()
+                                    val simId =
+                                        selectedSimId!!
 
-    val simId = selectedSimId!!
+                                    val selectedSim =
+                                        simCards.find {
+                                            it.subscriptionId == simId
+                                        }
 
-    val simName =
-        selectedSim
-            ?.displayName
-            ?: "SIM"
+                                    val simName =
+                                        selectedSim
+                                            ?.displayName
+                                            ?: "SIM"
 
-    scope.launch {
+                                    isSending = true
+                                    sendTotal = targets.size
+                                    sendCompleted = 0
+                                    sendSuccess = 0
+                                    sendFailed = 0
+                                    sendStartTime = System.currentTimeMillis()
 
-        try {
+scope.launch {
+    try {
 
-            val smsManager =
-                SmsManager
-                    .getSmsManagerForSubscriptionId(
-                        simId
-                    )
-
-            val parts =
-                smsManager.divideMessage(
-                    messageText
+        val smsManager =
+            SmsManager
+                .getSmsManagerForSubscriptionId(
+                    simId
                 )
 
-            val newLogs =
-                mutableListOf<MessageLog>()
+        val parts =
+            smsManager.divideMessage(
+                messageText
+            )
 
-            var successCount = 0
-            var failedCount = 0
+        val newLogs =
+            mutableListOf<MessageLog>()
 
-            targets.forEach { recipient ->
+        var successCount = 0
+        var failedCount = 0
 
-                try {
+        targets.forEach { recipient ->
 
-                    if (parts.size == 1) {
+            try {
 
-                        smsManager.sendTextMessage(
+                if (parts.size == 1) {
+
+                    smsManager
+                        .sendTextMessage(
                             recipient.phone,
                             null,
                             messageText,
@@ -935,90 +949,89 @@ val estimatedRemainingSeconds =
                             null
                         )
 
-                    } else {
+                } else {
 
-                        smsManager.sendMultipartTextMessage(
+                    smsManager
+                        .sendMultipartTextMessage(
                             recipient.phone,
                             null,
                             parts,
                             null,
                             null
                         )
-                    }
-
-                    successCount++
-
-                    sendSuccess++
-                    sendCompleted++
-
-                    newLogs.add(
-                        MessageLog(
-                            id =
-                                System.currentTimeMillis() +
-                                    newLogs.size,
-                            recipientName =
-                                recipient.name,
-                            recipientPhone =
-                                recipient.phone,
-                            status =
-                                "تم الإرسال",
-                            time =
-                                currentTime(),
-                            simName =
-                                simName,
-                            message =
-                                messageText
-                        )
-                    )
-
-                } catch (_: Exception) {
-
-                    failedCount++
-
-                    sendFailed++
-                    sendCompleted++
-
-                    newLogs.add(
-                        MessageLog(
-                            id =
-                                System.currentTimeMillis() +
-                                    newLogs.size,
-                            recipientName =
-                                recipient.name,
-                            recipientPhone =
-                                recipient.phone,
-                            status =
-                                "فشل الإرسال",
-                            time =
-                                currentTime(),
-                            simName =
-                                simName,
-                            message =
-                                messageText
-                        )
-                    )
                 }
+
+                successCount++
+                sendSuccess++
+                sendCompleted++
+
+                newLogs.add(
+                    MessageLog(
+                        id =
+                            System.currentTimeMillis() +
+                                newLogs.size,
+                        recipientName =
+                            recipient.name,
+                        recipientPhone =
+                            recipient.phone,
+                        status =
+                            "تم الإرسال",
+                        time =
+                            currentTime(),
+                        simName =
+                            simName,
+                        message =
+                            messageText
+                    )
+                )
+
+            } catch (_: Exception) {
+
+                failedCount++
+                sendFailed++
+                sendCompleted++
+
+                newLogs.add(
+                    MessageLog(
+                        id =
+                            System.currentTimeMillis() +
+                                newLogs.size,
+                        recipientName =
+                            recipient.name,
+                        recipientPhone =
+                            recipient.phone,
+                        status =
+                            "فشل الإرسال",
+                        time =
+                            currentTime(),
+                        simName =
+                            simName,
+                        message =
+                            messageText
+                    )
+                )
             }
-
-            messageLogs =
-                newLogs + messageLogs
-
-            saveAll()
-
-            isSending = false
-
-            statusMessage =
-                "تم الإرسال: $successCount | فشل: $failedCount\nالشريحة: $simName"
-
-        } catch (exception: Exception) {
-
-            isSending = false
-
-            statusMessage =
-                "حدث خطأ أثناء الإرسال: ${exception.message}"
         }
+
+        messageLogs =
+            newLogs + messageLogs
+
+        saveAll()
+
+        isSending = false
+
+        statusMessage =
+            "تم الإرسال: $successCount | فشل: $failedCount\nالشريحة: $simName"
+
+    } catch (exception: Exception) {
+
+        isSending = false
+
+        statusMessage =
+            "حدث خطأ أثناء الإرسال: ${exception.message}"
     }
 }
+                                }
                             }
                         }
                     )
@@ -1121,68 +1134,6 @@ val estimatedRemainingSeconds =
             }
         )
     }
-    $ sed -n '1120,1180p' app/src/main/java/com/faraj/smsapp/MainActivity.kt
-                    Text("إلغاء")
-                }
-            }
-        )
-    }
-
-
-    if (isSending) {
-
-        AlertDialog(
-            onDismissRequest = {
-                // منع إغلاق نافذة التقدم أثناء الإرسال
-            },
-            title = {
-                Text("جاري إرسال الرسائل")
-            },
-            text = {
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-
-                    Text(
-                        text =
-                            "تم إرسال $sendCompleted من $sendTotal"
-                    )
-
-                    LinearProgressIndicator(
-                        progress = {
-                            sendProgress
-                        },
-                        modifier =
-                            Modifier.fillMaxWidth()
-                    )
-
-                    Text(
-                        text =
-                            "${(sendProgress * 100).toInt()}%"
-                    )
-
-                    Text(
-                        text =
-                            "الناجحة: $sendSuccess"
-                    )
-
-                    Text(
-                        text =
-                            "الفاشلة: $sendFailed"
-                    )
-
-                    Text(
-                        text =
-                            "المتبقية: ${sendTotal - sendCompleted}"
-                    )
-
-                    if (estimatedRemainingSeconds > 0) {
-
-                        val minutes =
-                            estimatedRemainingSeconds / 60
-
 
     if (showEditDialog) {
 
