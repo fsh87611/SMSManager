@@ -141,11 +141,11 @@ fun readCsvFile(
                 val columns = line.split(",")
 
                 if (columns.size >= 2) {
-                    val name = columns[0].trim().removeSurrounding(""")
-                    val phone = columns[1].trim().removeSurrounding(""")
+                    val name = columns[0].trim().trim('"')
+                    val phone = columns[1].trim().trim('"')
 
                     if (name.isNotBlank() && phone.isNotBlank()) {
-                        recipients.add(Recipient(name = name, phone = phone))
+                        recipients.add(Recipient(recipientName = name, recipientPhone = phone))
                     }
                 }
             }
