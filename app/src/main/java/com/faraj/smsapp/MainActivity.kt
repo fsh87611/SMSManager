@@ -145,7 +145,7 @@ fun readCsvFile(
                     val phone = columns[1].trim().trim('"')
 
                     if (name.isNotBlank() && phone.isNotBlank()) {
-                        recipients.add(Recipient(recipientName = name, recipientPhone = phone))
+                        recipients.add(Recipient(name = name, phone = phone))
                     }
                 }
             }
