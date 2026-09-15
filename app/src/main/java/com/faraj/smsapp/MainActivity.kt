@@ -1,4 +1,3 @@
-
 package com.faraj.smsapp
 
 import android.Manifest
@@ -79,6 +78,8 @@ import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+
+import kotlinx.coroutines.flow.first
 
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.json.JSONArray
@@ -605,8 +606,7 @@ fun SmsManagerApp() {
         try {
 
             val preferences =
-                context.smsDataStore.data
-                    .kotlinx.coroutines.flow.first()
+                context.smsDataStore.data.first()
 
             val savedRecipients =
                 preferences[RECIPIENTS_KEY]
