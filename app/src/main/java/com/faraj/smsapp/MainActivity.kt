@@ -615,6 +615,7 @@ fun SmsManagerApp() {
     if (isSending) {
         AlertDialog(
             onDismissRequest = { },
+        confirmButton = { },
             title = {
                 Text("جاري إرسال الرسائل")
             },
