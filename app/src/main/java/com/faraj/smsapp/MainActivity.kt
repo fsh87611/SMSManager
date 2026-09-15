@@ -1,4 +1,4 @@
-```kotlin
+
 package com.faraj.smsapp
 
 import android.Manifest
@@ -1755,4 +1755,3 @@ fun HistoryScreen() {
         }
     }
 }
-```
