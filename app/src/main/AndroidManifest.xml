@@ -7,7 +7,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="نظام SMS الجماعي"
+        android:label="Faraj SMS" android:icon="@drawable/ic_launcher" android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.SMSManager">
         <activity
