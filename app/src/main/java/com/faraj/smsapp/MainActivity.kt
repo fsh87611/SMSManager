@@ -6,79 +6,126 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.telephony.SmsManager
-
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-
+import java.io.InputStream
 
 data class Recipient(
     val name: String,
     val phone: String
 )
 
-
 fun readExcelFile(
     context: android.content.Context,
     uri: Uri
 ): List<Recipient> {
-
     val recipients = mutableListOf<Recipient>()
 
-    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+    try {
+        val inputStream: InputStream? =
+            context.contentResolver.openInputStream(uri)
 
-        val workbook = XSSFWorkbook(inputStream)
-        val sheet = workbook.getSheetAt(0)
+        if (inputStream != null) {
+            val workbook = XSSFWorkbook(inputStream)
+            val sheet = workbook.getSheetAt(0)
 
-        for (row in sheet) {
+            for (row in sheet) {
+                if (row.rowNum == 0) continue
 
-            val name =
-                row.getCell(0)?.toString()?.trim() ?: ""
+                val name = row.getCell(0)?.toString()?.trim() ?: ""
+                val phone = row.getCell(1)?.toString()?.trim() ?: ""
 
-            val phone =
-                row.getCell(1)?.toString()?.trim() ?: ""
-
-            if (
-                name.isNotBlank() &&
-                phone.isNotBlank()
-            ) {
-
-                recipients.add(
-                    Recipient(
-                        name = name,
-                        phone = phone
+                if (name.isNotBlank() && phone.isNotBlank()) {
+                    recipients.add(
+                        Recipient(
+                            name = name,
+                            phone = phone
+                        )
                     )
-                )
+                }
             }
-        }
 
-        workbook.close()
+            workbook.close()
+            inputStream.close()
+        }
+    } catch (_: Exception) {
     }
 
     return recipients
 }
 
-
 class MainActivity : ComponentActivity() {
+
+    private val requestSmsPermission =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.SEND_SMS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestSmsPermission.launch(Manifest.permission.SEND_SMS)
+        }
 
         setContent {
             SmsManagerApp()
@@ -86,57 +133,29 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmsManagerApp() {
 
-    val context = LocalContext.current
-
-    var selectedTab by remember {
+    var currentPage by remember {
         mutableStateOf(0)
     }
 
-    var message by remember {
-        mutableStateOf("")
-    }
-
     var recipients by remember {
-
         mutableStateOf(
             listOf(
-                Recipient(
-                    "أحمد محمد",
-                    "0590000000"
-                ),
-                Recipient(
-                    "محمد علي",
-                    "0591111111"
-                ),
-                Recipient(
-                    "سارة محمود",
-                    "0592222222"
-                )
+                Recipient("أحمد محمد", "0590000000"),
+                Recipient("محمد علي", "0591111111"),
+                Recipient("سارة محمود", "0592222222")
             )
         )
     }
 
-    /*
-     * أرقام المستلمين المحددين
-     */
     var selectedPhones by remember {
         mutableStateOf(setOf<String>())
     }
 
-    var sent by remember {
-        mutableStateOf(0)
-    }
-
-    var failed by remember {
-        mutableStateOf(0)
-    }
-
-    var showAdd by remember {
+    var showAddDialog by remember {
         mutableStateOf(false)
     }
 
@@ -148,774 +167,480 @@ fun SmsManagerApp() {
         mutableStateOf("")
     }
 
-    var status by remember {
+    var messageText by remember {
         mutableStateOf("")
     }
 
-    var importStatus by remember {
+    var statusMessage by remember {
         mutableStateOf("")
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    /*
-     * اختيار ملف Excel
-     */
-    val excelPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
+    val excelPicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument()
+        ) { uri: Uri? ->
 
-        if (uri != null) {
-
-            try {
+            if (uri != null) {
 
                 val importedRecipients =
-                    readExcelFile(
-                        context,
-                        uri
-                    )
+                    readExcelFile(context, uri)
 
-                if (
-                    importedRecipients.isNotEmpty()
-                ) {
+                recipients = importedRecipients
 
-                    recipients =
-                        importedRecipients
+                selectedPhones = emptySet()
 
-                    /*
-                     * عند استيراد قائمة جديدة
-                     * نلغي التحديد القديم
-                     */
-                    selectedPhones =
-                        emptySet()
-
-                    importStatus =
-                        "تم استيراد ${importedRecipients.size} مستلم بنجاح"
-
-                } else {
-
-                    importStatus =
-                        "لم يتم العثور على بيانات في ملف Excel"
-                }
-
-            } catch (e: Exception) {
-
-                importStatus =
-                    "تعذر قراءة ملف Excel: ${e.message}"
+                statusMessage =
+                    "تم استيراد ${importedRecipients.size} مستلم"
             }
         }
-    }
 
-
-    /*
-     * طلب صلاحيات SMS
-     */
-    val permissionLauncher =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { }
-
-
-    LaunchedEffect(Unit) {
-
-        val permissions =
-            arrayOf(
-                Manifest.permission.SEND_SMS,
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.READ_PHONE_NUMBERS
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text("Faraj SMS")
+                }
             )
+        },
 
-        val missing =
-            permissions.filter {
+        bottomBar = {
 
-                ContextCompat.checkSelfPermission(
-                    context,
-                    it
-                ) != PackageManager.PERMISSION_GRANTED
+            NavigationBar {
+
+                NavigationBarItem(
+                    selected = currentPage == 0,
+                    onClick = { currentPage = 0 },
+                    icon = {
+                        Icon(
+                            Icons.Default.Home,
+                            contentDescription = "الرئيسية"
+                        )
+                    },
+                    label = {
+                        Text("الرئيسية")
+                    }
+                )
+
+                NavigationBarItem(
+                    selected = currentPage == 1,
+                    onClick = { currentPage = 1 },
+                    icon = {
+                        Icon(
+                            Icons.Default.People,
+                            contentDescription = "المستلمون"
+                        )
+                    },
+                    label = {
+                        Text("المستلمون")
+                    }
+                )
+
+                NavigationBarItem(
+                    selected = currentPage == 2,
+                    onClick = { currentPage = 2 },
+                    icon = {
+                        Icon(
+                            Icons.Default.Send,
+                            contentDescription = "إرسال"
+                        )
+                    },
+                    label = {
+                        Text("إرسال")
+                    }
+                )
+
+                NavigationBarItem(
+                    selected = currentPage == 3,
+                    onClick = { currentPage = 3 },
+                    icon = {
+                        Icon(
+                            Icons.Default.History,
+                            contentDescription = "السجل"
+                        )
+                    },
+                    label = {
+                        Text("السجل")
+                    }
+                )
             }
+        }
+    ) { paddingValues ->
 
-        if (
-            missing.isNotEmpty()
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
 
-            permissionLauncher.launch(
-                missing.toTypedArray()
-            )
+            when (currentPage) {
+
+                0 -> {
+
+                    HomeScreen(
+                        recipientsCount = recipients.size,
+                        selectedCount = selectedPhones.size,
+                        onOpenRecipients = {
+                            currentPage = 1
+                        },
+                        onOpenSend = {
+                            currentPage = 2
+                        }
+                    )
+                }
+
+                1 -> {
+
+                    RecipientsScreen(
+                        recipients = recipients,
+                        selectedPhones = selectedPhones,
+
+                        onToggleSelection = { phone ->
+
+                            selectedPhones =
+                                if (selectedPhones.contains(phone)) {
+                                    selectedPhones - phone
+                                } else {
+                                    selectedPhones + phone
+                                }
+                        },
+
+                        onSelectAll = {
+
+                            selectedPhones =
+                                selectedPhones + recipients.map {
+                                    it.phone
+                                }.toSet()
+                        },
+
+                        onDeselectAll = {
+
+                            selectedPhones = emptySet()
+                        },
+
+                        onDelete = { recipient ->
+
+                            recipients =
+                                recipients.filterNot {
+                                    it.phone == recipient.phone
+                                }
+
+                            selectedPhones =
+                                selectedPhones - recipient.phone
+                        },
+
+                        onAdd = {
+                            showAddDialog = true
+                        },
+
+                        onImportExcel = {
+
+                            excelPicker.launch(
+                                arrayOf(
+                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "application/vnd.ms-excel"
+                                )
+                            )
+                        }
+                    )
+                }
+
+                2 -> {
+
+                    SendScreen(
+                        recipientCount =
+                            if (selectedPhones.isNotEmpty()) {
+                                selectedPhones.size
+                            } else {
+                                recipients.size
+                            },
+
+                        messageText = messageText,
+
+                        onMessageChange = {
+                            messageText = it
+                        },
+
+                        statusMessage = statusMessage,
+
+                        onSend = {
+
+                            val targets =
+                                if (selectedPhones.isNotEmpty()) {
+                                    recipients.filter {
+                                        selectedPhones.contains(it.phone)
+                                    }
+                                } else {
+                                    recipients
+                                }
+
+                            if (messageText.isBlank()) {
+
+                                statusMessage =
+                                    "يرجى كتابة الرسالة أولاً"
+
+                            } else if (targets.isEmpty()) {
+
+                                statusMessage =
+                                    "لا يوجد مستلمون"
+
+                            } else {
+
+                                try {
+
+                                    val smsManager =
+                                        SmsManager.getDefault()
+
+                                    var successCount = 0
+                                    var failedCount = 0
+
+                                    targets.forEach { recipient ->
+
+                                        try {
+
+                                            smsManager.sendTextMessage(
+                                                recipient.phone,
+                                                null,
+                                                messageText,
+                                                null,
+                                                null
+                                            )
+
+                                            successCount++
+
+                                        } catch (_: Exception) {
+
+                                            failedCount++
+                                        }
+                                    }
+
+                                    statusMessage =
+                                        "تم الإرسال: $successCount | فشل: $failedCount"
+
+                                } catch (e: Exception) {
+
+                                    statusMessage =
+                                        "حدث خطأ أثناء الإرسال"
+                                }
+                            }
+                        }
+                    )
+                }
+
+                3 -> {
+
+                    HistoryScreen()
+                }
+            }
         }
     }
 
+    if (showAddDialog) {
 
-    MaterialTheme {
+        AlertDialog(
 
-        Scaffold(
-
-            topBar = {
-
-                TopAppBar(
-
-                    title = {
-                        Text(
-                            "Faraj SMS"
-                        )
-                    },
-
-                    navigationIcon = {
-
-                        IconButton(
-                            onClick = {}
-                        ) {
-
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription =
-                                    "القائمة"
-                            )
-                        }
-                    },
-
-                    actions = {
-
-                        Text(
-                            "SIM 1",
-                            modifier =
-                                Modifier.padding(
-                                    end = 16.dp
-                                )
-                        )
-                    }
-                )
+            onDismissRequest = {
+                showAddDialog = false
             },
 
+            title = {
+                Text("إضافة مستلم")
+            },
 
-            bottomBar = {
+            text = {
 
-                NavigationBar {
+                Column {
 
-                    val labels =
-                        listOf(
-                            "الرئيسية",
-                            "المستلمون",
-                            "إرسال",
-                            "السجل"
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = {
+                            newName = it
+                        },
+                        label = {
+                            Text("اسم المستلم")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = newPhone,
+                        onValueChange = {
+                            newPhone = it
+                        },
+                        label = {
+                            Text("رقم الهاتف")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone
                         )
-
-                    val icons =
-                        listOf(
-                            Icons.Default.Home,
-                            Icons.Default.People,
-                            Icons.Default.Send,
-                            Icons.Default.History
-                        )
-
-                    labels.forEachIndexed {
-                            index,
-                            label ->
-
-                        NavigationBarItem(
-
-                            selected =
-                                selectedTab == index,
-
-                            onClick = {
-                                selectedTab =
-                                    index
-                            },
-
-                            icon = {
-
-                                Icon(
-                                    icons[index],
-                                    contentDescription =
-                                        label
-                                )
-                            },
-
-                            label = {
-                                Text(label)
-                            }
-                        )
-                    }
+                    )
                 }
-            }
+            },
 
-        ) { padding ->
+            confirmButton = {
 
+                TextButton(
 
-            Box(
-                modifier =
-                    Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-            ) {
+                    onClick = {
 
-
-                when (selectedTab) {
-
-
-                    /*
-                     * الرئيسية
-                     */
-                    0 -> {
-
-                        HomeScreen(
-
-                            count =
-                                recipients.size,
-
-                            sent =
-                                sent,
-
-                            failed =
-                                failed,
-
-                            onSend = {
-                                selectedTab = 2
-                            }
-                        )
-                    }
-
-
-                    /*
-                     * المستلمون
-                     */
-                    1 -> {
-
-                        RecipientsScreen(
+                        if (
+                            newName.isNotBlank() &&
+                            newPhone.isNotBlank()
+                        ) {
 
                             recipients =
-                                recipients,
-
-                            selectedPhones =
-                                selectedPhones,
-
-                            onToggleSelection = {
-                                phone ->
-
-                                selectedPhones =
-                                    if (
-                                        selectedPhones.contains(
-                                            phone
-                                        )
-                                    ) {
-
-                                        selectedPhones -
-                                            phone
-
-                                    } else {
-
-                                        selectedPhones +
-                                            phone
-                                    }
-                            },
-
-                            onAdd = {
-                                showAdd = true
-                            },
-
-                            onImportExcel = {
-
-                                excelPicker.launch(
-
-                                    arrayOf(
-                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                    )
+                                recipients + Recipient(
+                                    name = newName.trim(),
+                                    phone = newPhone.trim()
                                 )
-                            },
 
-                            importStatus =
-                                importStatus,
+                            newName = ""
+                            newPhone = ""
 
-                            onDelete = {
-                                recipient ->
-
-                                recipients =
-                                    recipients.filterNot {
-
-                                        it.phone ==
-                                            recipient.phone
-                                    }
-
-                                selectedPhones =
-                                    selectedPhones -
-                                        recipient.phone
-                            }
-                        )
+                            showAddDialog = false
+                        }
                     }
+                ) {
+                    Text("إضافة")
+                }
+            },
 
+            dismissButton = {
 
-                    /*
-                     * إرسال
-                     */
-                    2 -> {
-
-                        SendScreen(
-
-                            message =
-                                message,
-
-                            onMessageChange = {
-                                message = it
-                            },
-
-                            recipientCount =
-                                if (
-                                    selectedPhones.isNotEmpty()
-                                ) {
-
-                                    selectedPhones.size
-
-                                } else {
-
-                                    recipients.size
-                                },
-
-                            status =
-                                status,
-
-                            onSend = {
-
-                                if (
-                                    message.isBlank()
-                                ) {
-
-                                    status =
-                                        "اكتب الرسالة أولاً"
-
-                                } else {
-
-                                    /*
-                                     * إذا كان هناك تحديد،
-                                     * نرسل للمحدد فقط.
-                                     *
-                                     * إذا لم يوجد تحديد،
-                                     * نرسل للجميع.
-                                     */
-                                    val targets =
-                                        if (
-                                            selectedPhones.isNotEmpty()
-                                        ) {
-
-                                            recipients.filter {
-                                                selectedPhones.contains(
-                                                    it.phone
-                                                )
-                                            }
-
-                                        } else {
-
-                                            recipients
-                                        }
-
-                                    var ok = 0
-                                    var bad = 0
-
-                                    try {
-
-                                        val sms =
-                                            SmsManager.getDefault()
-
-                                        targets.forEach {
-
-                                            try {
-
-                                                sms.sendTextMessage(
-                                                    it.phone,
-                                                    null,
-                                                    message,
-                                                    null,
-                                                    null
-                                                )
-
-                                                ok++
-
-                                            } catch (
-                                                _: Exception
-                                            ) {
-
-                                                bad++
-                                            }
-                                        }
-
-                                        sent += ok
-                                        failed += bad
-
-                                        status =
-                                            "تم بدء إرسال $ok رسالة"
-
-                                    } catch (
-                                        _: Exception
-                                    ) {
-
-                                        status =
-                                            "تعذر الوصول إلى خدمة SMS"
-                                    }
-                                }
-                            }
-                        )
+                TextButton(
+                    onClick = {
+                        showAddDialog = false
                     }
-
-
-                    /*
-                     * السجل
-                     */
-                    3 -> {
-
-                        HistoryScreen(
-
-                            sent =
-                                sent,
-
-                            failed =
-                                failed
-                        )
-                    }
+                ) {
+                    Text("إلغاء")
                 }
             }
-
-
-            /*
-             * نافذة إضافة مستلم
-             */
-            if (showAdd) {
-
-                AlertDialog(
-
-                    onDismissRequest = {
-                        showAdd = false
-                    },
-
-                    title = {
-                        Text(
-                            "إضافة مستلم"
-                        )
-                    },
-
-                    text = {
-
-                        Column(
-
-                            verticalArrangement =
-                                Arrangement.spacedBy(
-                                    10.dp
-                                )
-                        ) {
-
-                            OutlinedTextField(
-
-                                value =
-                                    newName,
-
-                                onValueChange = {
-                                    newName = it
-                                },
-
-                                label = {
-                                    Text(
-                                        "الاسم"
-                                    )
-                                },
-
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                            )
-
-
-                            OutlinedTextField(
-
-                                value =
-                                    newPhone,
-
-                                onValueChange = {
-                                    newPhone = it
-                                },
-
-                                label = {
-                                    Text(
-                                        "رقم الهاتف"
-                                    )
-                                },
-
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                            )
-                        }
-                    },
-
-                    confirmButton = {
-
-                        TextButton(
-
-                            onClick = {
-
-                                if (
-                                    newName.isNotBlank() &&
-                                    newPhone.isNotBlank()
-                                ) {
-
-                                    recipients =
-                                        recipients +
-                                            Recipient(
-                                                newName,
-                                                newPhone
-                                            )
-                                }
-
-                                newName = ""
-                                newPhone = ""
-
-                                showAdd = false
-                            }
-
-                        ) {
-
-                            Text(
-                                "إضافة"
-                            )
-                        }
-                    },
-
-                    dismissButton = {
-
-                        TextButton(
-
-                            onClick = {
-                                showAdd = false
-                            }
-
-                        ) {
-
-                            Text(
-                                "إلغاء"
-                            )
-                        }
-                    }
-                )
-            }
-        }
+        )
     }
 }
 
-
-/*
- * الصفحة الرئيسية
- */
 @Composable
 fun HomeScreen(
-    count: Int,
-    sent: Int,
-    failed: Int,
-    onSend: () -> Unit
+    recipientsCount: Int,
+    selectedCount: Int,
+    onOpenRecipients: () -> Unit,
+    onOpenSend: () -> Unit
 ) {
 
-    LazyColumn(
-
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(12.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
-        item {
+        Text(
+            text = "مرحباً بك في Faraj SMS",
+            style = MaterialTheme.typography.headlineSmall
+        )
 
-            Text(
-                "مرحباً بك 👋",
-                style =
-                    MaterialTheme.typography.headlineSmall
-            )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
 
-            Spacer(
-                Modifier.height(4.dp)
-            )
-
-            Text(
-                "إدارة وإرسال الرسائل من هاتفك باستخدام شريحة SIM."
-            )
-        }
-
-
-        item {
-
-            StatCard(
-                "إجمالي المستلمين",
-                count.toString()
-            )
-        }
-
-
-        item {
-
-            StatCard(
-                "الرسائل المرسلة",
-                sent.toString()
-            )
-        }
-
-
-        item {
-
-            StatCard(
-                "الفاشلة",
-                failed.toString()
-            )
-        }
-
-
-        item {
-
-            Button(
-
-                onClick =
-                    onSend,
-
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-
-                shape =
-                    RoundedCornerShape(16.dp)
-
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
 
-                Icon(
-                    Icons.Default.Send,
-                    contentDescription = null
-                )
-
-                Spacer(
-                    Modifier.width(8.dp)
+                Text(
+                    text = "إدارة الرسائل النصية",
+                    style = MaterialTheme.typography.titleLarge
                 )
 
                 Text(
-                    "إرسال رسالة جديدة"
+                    text = "عدد المستلمين: $recipientsCount"
+                )
+
+                Text(
+                    text = "المحدد حالياً: $selectedCount"
                 )
             }
         }
-    }
-}
 
-
-/*
- * بطاقة الإحصائيات
- */
-@Composable
-fun StatCard(
-    title: String,
-    value: String
-) {
-
-    Card(
-
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        shape =
-            RoundedCornerShape(18.dp)
-
-    ) {
-
-        Row(
-
-            Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-
-            horizontalArrangement =
-                Arrangement.SpaceBetween,
-
-            verticalAlignment =
-                Alignment.CenterVertically
-
+        Button(
+            onClick = onOpenRecipients,
+            modifier = Modifier.fillMaxWidth()
         ) {
 
-            Text(
-                title,
-                style =
-                    MaterialTheme.typography.titleMedium
+            Icon(
+                Icons.Default.People,
+                contentDescription = null
             )
 
-            Text(
-                value,
-                style =
-                    MaterialTheme.typography.headlineMedium
+            Spacer(
+                modifier = Modifier.padding(4.dp)
             )
+
+            Text("إدارة المستلمين")
+        }
+
+        Button(
+            onClick = onOpenSend,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Icon(
+                Icons.Default.Send,
+                contentDescription = null
+            )
+
+            Spacer(
+                modifier = Modifier.padding(4.dp)
+            )
+
+            Text("إرسال رسالة")
         }
     }
 }
 
-
-/*
- * صفحة المستلمين
- *
- * المرحلة 1:
- * البحث عن اسم أو رقم
- *
- * المرحلة 2:
- * تحديد مستلمين محددين
- */
 @Composable
 fun RecipientsScreen(
-
-    recipients:
-        List<Recipient>,
-
-    selectedPhones:
-        Set<String>,
-
-    onToggleSelection:
-        (String) -> Unit,
-
-    onAdd:
-        () -> Unit,
-
-    onImportExcel:
-        () -> Unit,
-
-    importStatus:
-        String,
-
-    onDelete:
-        (Recipient) -> Unit
-
+    recipients: List<Recipient>,
+    selectedPhones: Set<String>,
+    onToggleSelection: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onDeselectAll: () -> Unit,
+    onDelete: (Recipient) -> Unit,
+    onAdd: () -> Unit,
+    onImportExcel: () -> Unit
 ) {
 
-    /*
-     * نص البحث
-     */
     var searchQuery by remember {
         mutableStateOf("")
     }
 
-
-    /*
-     * تصفية المستلمين
-     * حسب الاسم أو الرقم
-     */
     val filteredRecipients =
-        remember(
-            recipients,
-            searchQuery
-        ) {
+        remember(recipients, searchQuery) {
 
-            if (
-                searchQuery.isBlank()
-            ) {
+            if (searchQuery.isBlank()) {
 
                 recipients
 
             } else {
 
                 recipients.filter {
-                    recipient ->
 
-                    recipient.name.contains(
+                    it.name.contains(
                         searchQuery,
                         ignoreCase = true
                     ) ||
 
-                    recipient.phone.contains(
+                    it.phone.contains(
                         searchQuery,
                         ignoreCase = true
                     )
@@ -923,297 +648,208 @@ fun RecipientsScreen(
             }
         }
 
+    val allVisibleSelected =
+        filteredRecipients.isNotEmpty() &&
+                filteredRecipients.all {
+                    selectedPhones.contains(it.phone)
+                }
 
     Column(
-
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
 
-
-        /*
-         * العنوان والأزرار
-         */
-        Row(
-
-            modifier =
-                Modifier.fillMaxWidth(),
-
-            horizontalArrangement =
-                Arrangement.SpaceBetween,
-
-            verticalAlignment =
-                Alignment.CenterVertically
-
-        ) {
-
-            Text(
-                "المستلمون",
-                style =
-                    MaterialTheme.typography.headlineSmall
-            )
-
-
-            Row(
-
-                horizontalArrangement =
-                    Arrangement.spacedBy(8.dp),
-
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                FilledTonalButton(
-
-                    onClick =
-                        onImportExcel
-
-                ) {
-
-                    Icon(
-                        Icons.Default.FileOpen,
-                        contentDescription =
-                            "استيراد Excel"
-                    )
-
-                    Spacer(
-                        Modifier.width(6.dp)
-                    )
-
-                    Text(
-                        "Excel"
-                    )
-                }
-
-
-                FilledTonalButton(
-
-                    onClick =
-                        onAdd
-
-                ) {
-
-                    Icon(
-                        Icons.Default.PersonAdd,
-                        contentDescription =
-                            "إضافة"
-                    )
-
-                    Spacer(
-                        Modifier.width(6.dp)
-                    )
-
-                    Text(
-                        "إضافة"
-                    )
-                }
-            }
-        }
-
-
-        Spacer(
-            Modifier.height(12.dp)
-        )
-
-
-        /*
-         * مربع البحث
-         */
         OutlinedTextField(
-
-            value =
-                searchQuery,
-
+            value = searchQuery,
             onValueChange = {
                 searchQuery = it
             },
-
-            modifier =
-                Modifier.fillMaxWidth(),
-
-            singleLine = true,
-
             label = {
-                Text(
-                    "البحث عن اسم أو رقم"
-                )
+                Text("البحث عن اسم أو رقم")
             },
-
-            placeholder = {
-                Text(
-                    "مثال: أحمد أو 059..."
-                )
-            },
-
             leadingIcon = {
-
                 Icon(
                     Icons.Default.Search,
-                    contentDescription =
-                        "بحث"
+                    contentDescription = null
                 )
             },
-
             trailingIcon = {
 
-                if (
-                    searchQuery.isNotEmpty()
-                ) {
+                if (searchQuery.isNotEmpty()) {
 
                     IconButton(
-
                         onClick = {
                             searchQuery = ""
                         }
-
                     ) {
 
                         Icon(
                             Icons.Default.Clear,
-                            contentDescription =
-                                "مسح البحث"
+                            contentDescription = "مسح البحث"
                         )
                     }
                 }
-            }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
-
 
         Spacer(
-            Modifier.height(8.dp)
+            modifier = Modifier.height(12.dp)
         )
 
-
-        /*
-         * معلومات التحديد
-         */
         Card(
-
-            modifier =
-                Modifier.fillMaxWidth(),
-
-            shape =
-                RoundedCornerShape(12.dp)
-
+            modifier = Modifier.fillMaxWidth()
         ) {
 
-            Row(
-
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-
-                horizontalArrangement =
-                    Arrangement.SpaceBetween,
-
-                verticalAlignment =
-                    Alignment.CenterVertically
-
+            Column(
+                modifier = Modifier.padding(12.dp)
             ) {
 
-                Text(
-                    "المحدد: ${selectedPhones.size}"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    Text(
+                        text = "المحدد: ${selectedPhones.size}"
+                    )
+
+                    Text(
+                        text = "إجمالي: ${recipients.size}"
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier.height(10.dp)
                 )
 
-                Text(
-                    "إجمالي: ${recipients.size}"
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+
+                    Button(
+                        onClick = {
+
+                            if (allVisibleSelected) {
+                                onDeselectAll()
+                            } else {
+                                onSelectAll()
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+
+                        Text(
+                            if (allVisibleSelected) {
+                                "إلغاء تحديد الكل"
+                            } else {
+                                "تحديد الكل"
+                            }
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onDeselectAll,
+                        modifier = Modifier.weight(1f)
+                    ) {
+
+                        Text("إلغاء الكل")
+                    }
+                }
             }
         }
-
 
         Spacer(
-            Modifier.height(8.dp)
+            modifier = Modifier.height(12.dp)
         )
 
-
-        /*
-         * حالة الاستيراد
-         */
-        if (
-            importStatus.isNotBlank()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
-            Card(
-
-                modifier =
-                    Modifier.fillMaxWidth()
-
+            Button(
+                onClick = onImportExcel,
+                modifier = Modifier.weight(1f)
             ) {
 
-                Text(
-
-                    text =
-                        importStatus,
-
-                    modifier =
-                        Modifier.padding(12.dp),
-
-                    style =
-                        MaterialTheme.typography.bodyMedium
+                Icon(
+                    Icons.Default.FileOpen,
+                    contentDescription = null
                 )
+
+                Spacer(
+                    modifier = Modifier.padding(3.dp)
+                )
+
+                Text("Excel")
             }
 
-            Spacer(
-                Modifier.height(8.dp)
-            )
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = null
+                )
+
+                Spacer(
+                    modifier = Modifier.padding(3.dp)
+                )
+
+                Text("إضافة")
+            }
         }
 
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
-        /*
-         * قائمة المستلمين
-         */
+        Text(
+            text = "نتائج البحث: ${filteredRecipients.size}",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
         LazyColumn(
-
-            modifier =
-                Modifier.fillMaxSize(),
-
-            verticalArrangement =
-                Arrangement.spacedBy(4.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
 
             items(
-
-                items =
-                    filteredRecipients,
-
+                items = filteredRecipients,
                 key = {
                     it.phone
                 }
-
             ) { recipient ->
-
 
                 ListItem(
 
                     headlineContent = {
-
-                        Text(
-                            recipient.name
-                        )
+                        Text(recipient.name)
                     },
 
                     supportingContent = {
-
-                        Text(
-                            recipient.phone
-                        )
+                        Text(recipient.phone)
                     },
 
                     leadingContent = {
 
                         Checkbox(
-
                             checked =
                                 selectedPhones.contains(
                                     recipient.phone
                                 ),
 
                             onCheckedChange = {
-
                                 onToggleSelection(
                                     recipient.phone
                                 )
@@ -1224,135 +860,80 @@ fun RecipientsScreen(
                     trailingContent = {
 
                         IconButton(
-
                             onClick = {
-
-                                onDelete(
-                                    recipient
-                                )
+                                onDelete(recipient)
                             }
-
                         ) {
 
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription =
-                                    "حذف"
+                                contentDescription = "حذف"
                             )
                         }
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
+                    }
                 )
-
-
-                HorizontalDivider()
             }
         }
     }
 }
 
-
-/*
- * صفحة الإرسال
- */
 @Composable
 fun SendScreen(
-
-    message:
-        String,
-
-    onMessageChange:
-        (String) -> Unit,
-
-    recipientCount:
-        Int,
-
-    status:
-        String,
-
-    onSend:
-        () -> Unit
-
+    recipientCount: Int,
+    messageText: String,
+    onMessageChange: (String) -> Unit,
+    statusMessage: String,
+    onSend: () -> Unit
 ) {
 
     Column(
-
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
-        Text(
-            "إرسال رسالة",
-            style =
-                MaterialTheme.typography.headlineSmall
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
 
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
 
-        Spacer(
-            Modifier.height(8.dp)
-        )
-
-
-        Text(
-            "عدد المستلمين: $recipientCount"
-        )
-
-
-        Spacer(
-            Modifier.height(12.dp)
-        )
-
-
-        OutlinedTextField(
-
-            value =
-                message,
-
-            onValueChange =
-                onMessageChange,
-
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-
-            label = {
                 Text(
-                    "نص الرسالة"
+                    text = "إرسال رسالة",
+                    style = MaterialTheme.typography.titleLarge
                 )
-            },
 
-            supportingText = {
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
 
                 Text(
-                    "${message.length} حرف"
+                    text = "عدد المستلمين: $recipientCount"
+                )
+
+                Text(
+                    text = "الشريحة المستخدمة حالياً: SIM 1"
                 )
             }
+        }
+
+        OutlinedTextField(
+            value = messageText,
+            onValueChange = onMessageChange,
+            label = {
+                Text("نص الرسالة")
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
         )
-
-
-        Spacer(
-            Modifier.height(16.dp)
-        )
-
 
         Button(
-
-            onClick =
-                onSend,
-
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-
-            shape =
-                RoundedCornerShape(16.dp)
-
+            onClick = onSend,
+            modifier = Modifier.fillMaxWidth()
         ) {
 
             Icon(
@@ -1361,83 +942,67 @@ fun SendScreen(
             )
 
             Spacer(
-                Modifier.width(8.dp)
+                modifier = Modifier.padding(4.dp)
             )
 
-            Text(
-                "إرسال عبر SIM"
-            )
+            Text("إرسال الآن")
         }
 
+        if (statusMessage.isNotBlank()) {
 
-        if (
-            status.isNotBlank()
-        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
 
-            Spacer(
-                Modifier.height(12.dp)
-            )
-
-            Text(
-                status
-            )
+                Text(
+                    text = statusMessage,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         }
     }
 }
 
-
-/*
- * صفحة السجل
- */
 @Composable
-fun HistoryScreen(
-    sent: Int,
-    failed: Int
-) {
+fun HistoryScreen() {
 
     Column(
-
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
     ) {
 
-        Text(
-            "سجل الإرسال",
-            style =
-                MaterialTheme.typography.headlineSmall
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
 
-
-        Spacer(
-            Modifier.height(12.dp)
-        )
-
-
-        ListItem(
-
-            headlineContent = {
-                Text(
-                    "إحصائيات الإرسال"
-                )
-            },
-
-            supportingContent = {
-
-                Text(
-                    "ناجحة: $sent   •   فاشلة: $failed"
-                )
-            },
-
-            leadingContent = {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
 
                 Icon(
                     Icons.Default.History,
                     contentDescription = null
                 )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = "سجل الرسائل",
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = "سيتم تطوير سجل الإرسال التفصيلي في المرحلة 7."
+                )
             }
-        )
+        }
     }
 }
 ```
