@@ -133,7 +133,6 @@ fun readCsvFile(
 
     val recipients = mutableListOf<Recipient>()
     val usedPhones = mutableSetOf<String>()
-    val usedPhones = mutableSetOf<String>()
 
     try {
         context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { reader ->
