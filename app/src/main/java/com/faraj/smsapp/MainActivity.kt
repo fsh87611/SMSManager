@@ -1,4 +1,3 @@
-
 package com.faraj.smsapp
 
 import android.Manifest
@@ -9,10 +8,12 @@ import android.os.Bundle
 import android.telephony.SmsManager
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,10 +22,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -55,24 +60,31 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+
 import androidx.core.content.ContextCompat
+
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+
 import java.io.InputStream
+
 
 data class Recipient(
     val name: String,
     val phone: String
 )
+
 
 data class SimCard(
     val subscriptionId: Int,
@@ -80,22 +92,30 @@ data class SimCard(
     val slotIndex: Int
 )
 
+
 fun readExcelFile(
     context: Context,
     uri: Uri
 ): List<Recipient> {
+
     val recipients = mutableListOf<Recipient>()
 
     try {
+
         val inputStream: InputStream? =
             context.contentResolver.openInputStream(uri)
 
         if (inputStream != null) {
+
             val workbook = XSSFWorkbook(inputStream)
+
             val sheet = workbook.getSheetAt(0)
 
             for (row in sheet) {
-                if (row.rowNum == 0) continue
+
+                if (row.rowNum == 0) {
+                    continue
+                }
 
                 val name =
                     row.getCell(0)?.toString()?.trim() ?: ""
@@ -103,7 +123,11 @@ fun readExcelFile(
                 val phone =
                     row.getCell(1)?.toString()?.trim() ?: ""
 
-                if (name.isNotBlank() && phone.isNotBlank()) {
+                if (
+                    name.isNotBlank() &&
+                    phone.isNotBlank()
+                ) {
+
                     recipients.add(
                         Recipient(
                             name = name,
@@ -116,18 +140,22 @@ fun readExcelFile(
             workbook.close()
             inputStream.close()
         }
+
     } catch (_: Exception) {
     }
 
     return recipients
 }
 
+
 fun getAvailableSimCards(
     context: Context
 ): List<SimCard> {
+
     val result = mutableListOf<SimCard>()
 
     try {
+
         if (
             ContextCompat.checkSelfPermission(
                 context,
@@ -146,8 +174,11 @@ fun getAvailableSimCards(
             subscriptionManager.activeSubscriptionInfoList
 
         if (subscriptions != null) {
+
             subscriptions.forEach { info: SubscriptionInfo ->
-                val slotIndex = info.simSlotIndex
+
+                val slotIndex =
+                    info.simSlotIndex
 
                 val simNumber =
                     if (slotIndex >= 0) {
@@ -157,7 +188,9 @@ fun getAvailableSimCards(
                     }
 
                 val carrierName =
-                    info.carrierName?.toString()?.trim()
+                    info.carrierName
+                        ?.toString()
+                        ?.trim()
                         ?: ""
 
                 val displayName =
@@ -169,18 +202,25 @@ fun getAvailableSimCards(
 
                 result.add(
                     SimCard(
-                        subscriptionId = info.subscriptionId,
-                        displayName = displayName,
-                        slotIndex = slotIndex
+                        subscriptionId =
+                            info.subscriptionId,
+                        displayName =
+                            displayName,
+                        slotIndex =
+                            slotIndex
                     )
                 )
             }
         }
+
     } catch (_: Exception) {
     }
 
-    return result.sortedBy { it.slotIndex }
+    return result.sortedBy {
+        it.slotIndex
+    }
 }
+
 
 class MainActivity : ComponentActivity() {
 
@@ -194,7 +234,11 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestPermission()
         ) { }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+
         super.onCreate(savedInstanceState)
 
         if (
@@ -203,10 +247,12 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.SEND_SMS
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+
             requestSmsPermission.launch(
                 Manifest.permission.SEND_SMS
             )
         }
+
 
         if (
             ContextCompat.checkSelfPermission(
@@ -214,16 +260,19 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.READ_PHONE_STATE
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+
             requestPhoneStatePermission.launch(
                 Manifest.permission.READ_PHONE_STATE
             )
         }
+
 
         setContent {
             SmsManagerApp()
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -233,17 +282,23 @@ fun SmsManagerApp() {
         mutableStateOf(0)
     }
 
+
     var recipients by remember {
+
         mutableStateOf(
+
             listOf(
+
                 Recipient(
                     "أحمد محمد",
                     "0590000000"
                 ),
+
                 Recipient(
                     "محمد علي",
                     "0591111111"
                 ),
+
                 Recipient(
                     "سارة محمود",
                     "0592222222"
@@ -252,78 +307,101 @@ fun SmsManagerApp() {
         )
     }
 
+
     var selectedPhones by remember {
         mutableStateOf(setOf<String>())
     }
+
 
     var showAddDialog by remember {
         mutableStateOf(false)
     }
 
+
     var showEditDialog by remember {
         mutableStateOf(false)
     }
+
 
     var editingRecipient by remember {
         mutableStateOf<Recipient?>(null)
     }
 
+
     var newName by remember {
         mutableStateOf("")
     }
+
 
     var newPhone by remember {
         mutableStateOf("")
     }
 
+
     var editName by remember {
         mutableStateOf("")
     }
+
 
     var editPhone by remember {
         mutableStateOf("")
     }
 
+
     var messageText by remember {
         mutableStateOf("")
     }
+
 
     var statusMessage by remember {
         mutableStateOf("")
     }
 
+
     val context =
         androidx.compose.ui.platform.LocalContext.current
 
+
     var simCards by remember {
+
         mutableStateOf(
             getAvailableSimCards(context)
         )
     }
 
+
     var selectedSimId by remember {
         mutableStateOf<Int?>(null)
     }
 
+
     LaunchedEffect(Unit) {
+
         val availableSims =
             getAvailableSimCards(context)
 
-        simCards = availableSims
+        simCards =
+            availableSims
 
         if (
             selectedSimId == null &&
             availableSims.isNotEmpty()
         ) {
+
             selectedSimId =
-                availableSims.first().subscriptionId
+                availableSims
+                    .first()
+                    .subscriptionId
         }
     }
 
+
     val excelPicker =
         rememberLauncherForActivityResult(
+
             contract =
                 ActivityResultContracts.OpenDocument()
+
         ) { uri: Uri? ->
 
             if (uri != null) {
@@ -345,133 +423,193 @@ fun SmsManagerApp() {
             }
         }
 
+
     Scaffold(
+
         topBar = {
+
             androidx.compose.material3.TopAppBar(
+
                 title = {
                     Text("Faraj SMS")
                 }
             )
         },
+
+
         bottomBar = {
 
             NavigationBar {
 
                 NavigationBarItem(
-                    selected = currentPage == 0,
+
+                    selected =
+                        currentPage == 0,
+
                     onClick = {
                         currentPage = 0
                     },
+
                     icon = {
+
                         Icon(
                             Icons.Default.Home,
-                            contentDescription = "الرئيسية"
+                            contentDescription =
+                                "الرئيسية"
                         )
                     },
+
                     label = {
                         Text("الرئيسية")
                     }
                 )
 
+
                 NavigationBarItem(
-                    selected = currentPage == 1,
+
+                    selected =
+                        currentPage == 1,
+
                     onClick = {
                         currentPage = 1
                     },
+
                     icon = {
+
                         Icon(
                             Icons.Default.People,
-                            contentDescription = "المستلمون"
+                            contentDescription =
+                                "المستلمون"
                         )
                     },
+
                     label = {
                         Text("المستلمون")
                     }
                 )
 
+
                 NavigationBarItem(
-                    selected = currentPage == 2,
+
+                    selected =
+                        currentPage == 2,
+
                     onClick = {
                         currentPage = 2
                     },
+
                     icon = {
+
                         Icon(
                             Icons.Default.Send,
-                            contentDescription = "إرسال"
+                            contentDescription =
+                                "إرسال"
                         )
                     },
+
                     label = {
                         Text("إرسال")
                     }
                 )
 
+
                 NavigationBarItem(
-                    selected = currentPage == 3,
+
+                    selected =
+                        currentPage == 3,
+
                     onClick = {
                         currentPage = 3
                     },
+
                     icon = {
+
                         Icon(
                             Icons.Default.History,
-                            contentDescription = "السجل"
+                            contentDescription =
+                                "السجل"
                         )
                     },
+
                     label = {
                         Text("السجل")
                     }
                 )
             }
         }
+
     ) { paddingValues ->
 
+
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
         ) {
 
+
             when (currentPage) {
+
 
                 0 -> {
 
                     HomeScreen(
+
                         recipientsCount =
                             recipients.size,
+
                         selectedCount =
                             selectedPhones.size,
+
                         onOpenRecipients = {
                             currentPage = 1
                         },
+
                         onOpenSend = {
                             currentPage = 2
                         }
                     )
                 }
 
+
                 1 -> {
 
                     RecipientsScreen(
-                        recipients = recipients,
-                        selectedPhones = selectedPhones,
+
+                        recipients =
+                            recipients,
+
+                        selectedPhones =
+                            selectedPhones,
+
 
                         onToggleSelection = { phone ->
 
                             selectedPhones =
+
                                 if (
                                     selectedPhones.contains(
                                         phone
                                     )
                                 ) {
+
                                     selectedPhones - phone
+
                                 } else {
+
                                     selectedPhones + phone
                                 }
                         },
 
+
                         onSelectAll = {
 
                             selectedPhones =
+
                                 selectedPhones +
+
                                     recipients
                                         .map {
                                             it.phone
@@ -479,15 +617,19 @@ fun SmsManagerApp() {
                                         .toSet()
                         },
 
+
                         onDeselectAll = {
+
                             selectedPhones =
                                 emptySet()
                         },
+
 
                         onDelete = { recipient ->
 
                             recipients =
                                 recipients.filterNot {
+
                                     it.phone ==
                                         recipient.phone
                                 }
@@ -496,6 +638,7 @@ fun SmsManagerApp() {
                                 selectedPhones -
                                     recipient.phone
                         },
+
 
                         onEdit = { recipient ->
 
@@ -512,6 +655,7 @@ fun SmsManagerApp() {
                                 true
                         },
 
+
                         onAdd = {
 
                             newName = ""
@@ -521,11 +665,15 @@ fun SmsManagerApp() {
                                 true
                         },
 
+
                         onImportExcel = {
 
                             excelPicker.launch(
+
                                 arrayOf(
+
                                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
                                     "application/vnd.ms-excel"
                                 )
                             )
@@ -533,33 +681,45 @@ fun SmsManagerApp() {
                     )
                 }
 
+
                 2 -> {
 
                     SendScreen(
+
                         recipientCount =
+
                             if (
                                 selectedPhones.isNotEmpty()
                             ) {
+
                                 selectedPhones.size
+
                             } else {
+
                                 recipients.size
                             },
 
+
                         messageText =
                             messageText,
+
 
                         onMessageChange = {
                             messageText = it
                         },
 
+
                         statusMessage =
                             statusMessage,
+
 
                         simCards =
                             simCards,
 
+
                         selectedSimId =
                             selectedSimId,
+
 
                         onRefreshSims = {
 
@@ -573,16 +733,19 @@ fun SmsManagerApp() {
 
                             if (
                                 refreshed.none {
+
                                     it.subscriptionId ==
                                         selectedSimId
                                 }
                             ) {
+
                                 selectedSimId =
                                     refreshed
                                         .firstOrNull()
                                         ?.subscriptionId
                             }
                         },
+
 
                         onSimSelected = { simId ->
 
@@ -591,32 +754,44 @@ fun SmsManagerApp() {
 
                             val selected =
                                 simCards.find {
+
                                     it.subscriptionId ==
                                         simId
                                 }
 
                             statusMessage =
+
                                 if (selected != null) {
+
                                     "تم اختيار ${selected.displayName}"
+
                                 } else {
+
                                     ""
                                 }
                         },
 
+
                         onSend = {
 
                             val targets =
+
                                 if (
                                     selectedPhones.isNotEmpty()
                                 ) {
+
                                     recipients.filter {
+
                                         selectedPhones.contains(
                                             it.phone
                                         )
                                     }
+
                                 } else {
+
                                     recipients
                                 }
+
 
                             if (
                                 messageText.isBlank()
@@ -648,14 +823,18 @@ fun SmsManagerApp() {
 
                             } else {
 
+
                                 try {
 
+
                                     if (
+
                                         ContextCompat.checkSelfPermission(
                                             context,
                                             Manifest.permission.SEND_SMS
                                         ) !=
                                         PackageManager.PERMISSION_GRANTED
+
                                     ) {
 
                                         statusMessage =
@@ -663,11 +842,14 @@ fun SmsManagerApp() {
 
                                     } else {
 
+
                                         val smsManager =
+
                                             SmsManager
                                                 .getSmsManagerForSubscriptionId(
                                                     selectedSimId!!
                                                 )
+
 
                                         var successCount =
                                             0
@@ -675,19 +857,35 @@ fun SmsManagerApp() {
                                         var failedCount =
                                             0
 
+
                                         targets.forEach { recipient ->
+
 
                                             try {
 
-                                                smsManager.sendTextMessage(
+
+                                                val parts =
+                                                    smsManager.divideMessage(
+                                                        messageText
+                                                    )
+
+
+                                                smsManager.sendMultipartTextMessage(
+
                                                     recipient.phone,
+
                                                     null,
-                                                    messageText,
+
+                                                    parts,
+
                                                     null,
+
                                                     null
                                                 )
 
+
                                                 successCount++
+
 
                                             } catch (
                                                 _: Exception
@@ -697,20 +895,26 @@ fun SmsManagerApp() {
                                             }
                                         }
 
+
                                         val selectedSim =
                                             simCards.find {
+
                                                 it.subscriptionId ==
                                                     selectedSimId
                                             }
+
 
                                         val simName =
                                             selectedSim
                                                 ?.displayName
                                                 ?: "الشريحة المحددة"
 
+
                                         statusMessage =
+
                                             "تم الإرسال: $successCount | فشل: $failedCount\nالشريحة: $simName"
                                     }
+
 
                                 } catch (
                                     _: Exception
@@ -724,6 +928,7 @@ fun SmsManagerApp() {
                     )
                 }
 
+
                 3 -> {
 
                     HistoryScreen()
@@ -732,51 +937,73 @@ fun SmsManagerApp() {
         }
     }
 
+
     if (showAddDialog) {
+
 
         AlertDialog(
 
             onDismissRequest = {
-                showAddDialog = false
+
+                showAddDialog =
+                    false
             },
+
 
             title = {
                 Text("إضافة مستلم")
             },
 
+
             text = {
 
                 Column {
 
+
                     OutlinedTextField(
-                        value = newName,
+
+                        value =
+                            newName,
+
                         onValueChange = {
                             newName = it
                         },
+
                         label = {
                             Text("اسم المستلم")
                         },
+
                         modifier =
                             Modifier.fillMaxWidth(),
+
                         singleLine = true
                     )
+
 
                     Spacer(
                         modifier =
                             Modifier.height(12.dp)
                     )
 
+
                     OutlinedTextField(
-                        value = newPhone,
+
+                        value =
+                            newPhone,
+
                         onValueChange = {
                             newPhone = it
                         },
+
                         label = {
                             Text("رقم الهاتف")
                         },
+
                         modifier =
                             Modifier.fillMaxWidth(),
+
                         singleLine = true,
+
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType =
@@ -785,6 +1012,7 @@ fun SmsManagerApp() {
                     )
                 }
             },
+
 
             confirmButton = {
 
@@ -798,10 +1026,14 @@ fun SmsManagerApp() {
                         ) {
 
                             recipients =
+
                                 recipients +
+
                                     Recipient(
+
                                         name =
                                             newName.trim(),
+
                                         phone =
                                             newPhone.trim()
                                     )
@@ -819,66 +1051,94 @@ fun SmsManagerApp() {
                 }
             },
 
+
             dismissButton = {
 
                 TextButton(
+
                     onClick = {
-                        showAddDialog = false
+                        showAddDialog =
+                            false
                     }
+
                 ) {
+
                     Text("إلغاء")
                 }
             }
         )
     }
 
+
     if (showEditDialog) {
+
 
         AlertDialog(
 
             onDismissRequest = {
 
-                showEditDialog = false
-                editingRecipient = null
+                showEditDialog =
+                    false
+
+                editingRecipient =
+                    null
             },
+
 
             title = {
                 Text("تعديل بيانات المستلم")
             },
 
+
             text = {
 
                 Column {
 
+
                     OutlinedTextField(
-                        value = editName,
+
+                        value =
+                            editName,
+
                         onValueChange = {
                             editName = it
                         },
+
                         label = {
                             Text("اسم المستلم")
                         },
+
                         modifier =
                             Modifier.fillMaxWidth(),
+
                         singleLine = true
                     )
+
 
                     Spacer(
                         modifier =
                             Modifier.height(12.dp)
                     )
 
+
                     OutlinedTextField(
-                        value = editPhone,
+
+                        value =
+                            editPhone,
+
                         onValueChange = {
                             editPhone = it
                         },
+
                         label = {
                             Text("رقم الهاتف")
                         },
+
                         modifier =
                             Modifier.fillMaxWidth(),
+
                         singleLine = true,
+
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType =
@@ -887,6 +1147,7 @@ fun SmsManagerApp() {
                     )
                 }
             },
+
 
             confirmButton = {
 
@@ -897,35 +1158,50 @@ fun SmsManagerApp() {
                         val oldRecipient =
                             editingRecipient
 
+
                         if (
+
                             oldRecipient != null &&
+
                             editName.isNotBlank() &&
+
                             editPhone.isNotBlank()
+
                         ) {
+
 
                             val oldPhone =
                                 oldRecipient.phone
 
+
                             val updatedRecipient =
                                 Recipient(
+
                                     name =
                                         editName.trim(),
+
                                     phone =
                                         editPhone.trim()
                                 )
 
+
                             recipients =
+
                                 recipients.map {
 
                                     if (
                                         it.phone ==
                                             oldPhone
                                     ) {
+
                                         updatedRecipient
+
                                     } else {
+
                                         it
                                     }
                                 }
+
 
                             if (
                                 selectedPhones.contains(
@@ -934,13 +1210,18 @@ fun SmsManagerApp() {
                             ) {
 
                                 selectedPhones =
+
                                     selectedPhones
+
                                         .filterNot {
                                             it == oldPhone
                                         }
+
                                         .toSet() +
+
                                         editPhone.trim()
                             }
+
 
                             showEditDialog =
                                 false
@@ -954,6 +1235,7 @@ fun SmsManagerApp() {
                     Text("حفظ")
                 }
             },
+
 
             dismissButton = {
 
@@ -976,16 +1258,25 @@ fun SmsManagerApp() {
     }
 }
 
+
 @Composable
 fun HomeScreen(
+
     recipientsCount: Int,
+
     selectedCount: Int,
+
     onOpenRecipients: () -> Unit,
+
     onOpenSend: () -> Unit
+
 ) {
 
+
     Column(
+
         modifier =
+
             Modifier
                 .fillMaxSize()
                 .padding(20.dp),
@@ -994,7 +1285,9 @@ fun HomeScreen(
             Arrangement.spacedBy(16.dp)
     ) {
 
+
         Text(
+
             text =
                 "مرحباً بك في Faraj SMS",
 
@@ -1002,7 +1295,9 @@ fun HomeScreen(
                 MaterialTheme.typography.headlineSmall
         )
 
+
         Card(
+
             modifier =
                 Modifier.fillMaxWidth(),
 
@@ -1010,7 +1305,9 @@ fun HomeScreen(
                 RoundedCornerShape(16.dp)
         ) {
 
+
             Column(
+
                 modifier =
                     Modifier.padding(20.dp),
 
@@ -1018,7 +1315,9 @@ fun HomeScreen(
                     Arrangement.spacedBy(8.dp)
             ) {
 
+
                 Text(
+
                     text =
                         "إدارة الرسائل النصية",
 
@@ -1026,10 +1325,12 @@ fun HomeScreen(
                         MaterialTheme.typography.titleLarge
                 )
 
+
                 Text(
                     text =
                         "عدد المستلمين: $recipientsCount"
                 )
+
 
                 Text(
                     text =
@@ -1038,7 +1339,9 @@ fun HomeScreen(
             }
         }
 
+
         Button(
+
             onClick =
                 onOpenRecipients,
 
@@ -1046,22 +1349,30 @@ fun HomeScreen(
                 Modifier.fillMaxWidth()
         ) {
 
+
             Icon(
+
                 Icons.Default.People,
-                contentDescription = null
+
+                contentDescription =
+                    null
             )
+
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
 
+
             Text(
                 "إدارة المستلمين"
             )
         }
 
+
         Button(
+
             onClick =
                 onOpenSend,
 
@@ -1069,15 +1380,21 @@ fun HomeScreen(
                 Modifier.fillMaxWidth()
         ) {
 
+
             Icon(
+
                 Icons.Default.Send,
-                contentDescription = null
+
+                contentDescription =
+                    null
             )
+
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
+
 
             Text(
                 "إرسال رسالة"
@@ -1086,30 +1403,46 @@ fun HomeScreen(
     }
 }
 
+
 @Composable
 fun RecipientsScreen(
+
     recipients: List<Recipient>,
+
     selectedPhones: Set<String>,
+
     onToggleSelection: (String) -> Unit,
+
     onSelectAll: () -> Unit,
+
     onDeselectAll: () -> Unit,
+
     onDelete: (Recipient) -> Unit,
+
     onEdit: (Recipient) -> Unit,
+
     onAdd: () -> Unit,
+
     onImportExcel: () -> Unit
+
 ) {
+
 
     var searchQuery by remember {
         mutableStateOf("")
     }
 
+
     val filteredRecipients =
+
         remember(
             recipients,
             searchQuery
         ) {
 
-            if (searchQuery.isBlank()) {
+            if (
+                searchQuery.isBlank()
+            ) {
 
                 recipients
 
@@ -1121,6 +1454,7 @@ fun RecipientsScreen(
                         searchQuery,
                         ignoreCase = true
                     ) ||
+
                     it.phone.contains(
                         searchQuery,
                         ignoreCase = true
@@ -1129,20 +1463,28 @@ fun RecipientsScreen(
             }
         }
 
+
     val allVisibleSelected =
+
         filteredRecipients.isNotEmpty() &&
+
             filteredRecipients.all {
+
                 selectedPhones.contains(
                     it.phone
                 )
             }
 
+
     Column(
+
         modifier =
+
             Modifier
                 .fillMaxSize()
                 .padding(16.dp)
     ) {
+
 
         OutlinedTextField(
 
@@ -1154,18 +1496,24 @@ fun RecipientsScreen(
             },
 
             label = {
+
                 Text(
                     "البحث عن اسم أو رقم"
                 )
             },
 
+
             leadingIcon = {
 
                 Icon(
+
                     Icons.Default.Search,
-                    contentDescription = null
+
+                    contentDescription =
+                        null
                 )
             },
+
 
             trailingIcon = {
 
@@ -1174,13 +1522,17 @@ fun RecipientsScreen(
                 ) {
 
                     IconButton(
+
                         onClick = {
                             searchQuery = ""
                         }
+
                     ) {
 
                         Icon(
+
                             Icons.Default.Clear,
+
                             contentDescription =
                                 "مسح البحث"
                         )
@@ -1188,28 +1540,36 @@ fun RecipientsScreen(
                 }
             },
 
+
             modifier =
                 Modifier.fillMaxWidth(),
 
             singleLine = true
         )
 
+
         Spacer(
             modifier =
                 Modifier.height(12.dp)
         )
 
+
         Card(
+
             modifier =
                 Modifier.fillMaxWidth()
         ) {
 
+
             Column(
+
                 modifier =
                     Modifier.padding(12.dp)
             ) {
 
+
                 Row(
+
                     modifier =
                         Modifier.fillMaxWidth(),
 
@@ -1220,10 +1580,12 @@ fun RecipientsScreen(
                         Alignment.CenterVertically
                 ) {
 
+
                     Text(
                         text =
                             "المحدد: ${selectedPhones.size}"
                     )
+
 
                     Text(
                         text =
@@ -1231,18 +1593,22 @@ fun RecipientsScreen(
                     )
                 }
 
+
                 Spacer(
                     modifier =
                         Modifier.height(10.dp)
                 )
 
+
                 Row(
+
                     modifier =
                         Modifier.fillMaxWidth(),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(8.dp)
                 ) {
+
 
                     Button(
 
@@ -1251,8 +1617,11 @@ fun RecipientsScreen(
                             if (
                                 allVisibleSelected
                             ) {
+
                                 onDeselectAll()
+
                             } else {
+
                                 onSelectAll()
                             }
                         },
@@ -1261,17 +1630,22 @@ fun RecipientsScreen(
                             Modifier.weight(1f)
                     ) {
 
+
                         Text(
 
                             if (
                                 allVisibleSelected
                             ) {
+
                                 "إلغاء تحديد الكل"
+
                             } else {
+
                                 "تحديد الكل"
                             }
                         )
                     }
+
 
                     OutlinedButton(
 
@@ -1290,18 +1664,22 @@ fun RecipientsScreen(
             }
         }
 
+
         Spacer(
             modifier =
                 Modifier.height(12.dp)
         )
 
+
         Row(
+
             modifier =
                 Modifier.fillMaxWidth(),
 
             horizontalArrangement =
                 Arrangement.spacedBy(8.dp)
         ) {
+
 
             Button(
 
@@ -1312,18 +1690,25 @@ fun RecipientsScreen(
                     Modifier.weight(1f)
             ) {
 
+
                 Icon(
+
                     Icons.Default.FileOpen,
-                    contentDescription = null
+
+                    contentDescription =
+                        null
                 )
+
 
                 Spacer(
                     modifier =
                         Modifier.padding(3.dp)
                 )
 
+
                 Text("Excel")
             }
+
 
             Button(
 
@@ -1334,26 +1719,35 @@ fun RecipientsScreen(
                     Modifier.weight(1f)
             ) {
 
+
                 Icon(
+
                     Icons.Default.Add,
-                    contentDescription = null
+
+                    contentDescription =
+                        null
                 )
+
 
                 Spacer(
                     modifier =
                         Modifier.padding(3.dp)
                 )
 
+
                 Text("إضافة")
             }
         }
+
 
         Spacer(
             modifier =
                 Modifier.height(8.dp)
         )
 
+
         Text(
+
             text =
                 "نتائج البحث: ${filteredRecipients.size}",
 
@@ -1361,38 +1755,51 @@ fun RecipientsScreen(
                 MaterialTheme.typography.bodyMedium
         )
 
+
         Spacer(
             modifier =
                 Modifier.height(8.dp)
         )
 
+
         LazyColumn(
+
             modifier =
                 Modifier.fillMaxSize()
+
         ) {
 
+
             items(
+
                 items =
                     filteredRecipients,
 
                 key = {
                     it.phone
                 }
+
             ) { recipient ->
+
 
                 ListItem(
 
+
                     headlineContent = {
+
                         Text(
                             recipient.name
                         )
                     },
 
+
                     supportingContent = {
+
                         Text(
                             recipient.phone
                         )
                     },
+
 
                     leadingContent = {
 
@@ -1412,31 +1819,42 @@ fun RecipientsScreen(
                         )
                     },
 
+
                     trailingContent = {
 
                         Row {
 
+
                             IconButton(
+
                                 onClick = {
                                     onEdit(recipient)
                                 }
+
                             ) {
 
                                 Icon(
+
                                     Icons.Default.Edit,
+
                                     contentDescription =
                                         "تعديل"
                                 )
                             }
 
+
                             IconButton(
+
                                 onClick = {
                                     onDelete(recipient)
                                 }
+
                             ) {
 
                                 Icon(
+
                                     Icons.Default.Delete,
+
                                     contentDescription =
                                         "حذف"
                                 )
@@ -1449,31 +1867,49 @@ fun RecipientsScreen(
     }
 }
 
+
 @Composable
 fun SendScreen(
+
     recipientCount: Int,
+
     messageText: String,
+
     onMessageChange: (String) -> Unit,
+
     statusMessage: String,
+
     simCards: List<SimCard>,
+
     selectedSimId: Int?,
+
     onRefreshSims: () -> Unit,
+
     onSimSelected: (Int) -> Unit,
+
     onSend: () -> Unit
+
 ) {
+
 
     var simMenuExpanded by remember {
         mutableStateOf(false)
     }
 
+
     val selectedSim =
+
         simCards.find {
+
             it.subscriptionId ==
                 selectedSimId
         }
 
+
     Column(
+
         modifier =
+
             Modifier
                 .fillMaxSize()
                 .padding(20.dp),
@@ -1482,17 +1918,23 @@ fun SendScreen(
             Arrangement.spacedBy(16.dp)
     ) {
 
+
         Card(
+
             modifier =
                 Modifier.fillMaxWidth()
         ) {
 
+
             Column(
+
                 modifier =
                     Modifier.padding(16.dp)
             ) {
 
+
                 Text(
+
                     text =
                         "إرسال رسالة",
 
@@ -1500,22 +1942,28 @@ fun SendScreen(
                         MaterialTheme.typography.titleLarge
                 )
 
+
                 Spacer(
                     modifier =
                         Modifier.height(6.dp)
                 )
 
+
                 Text(
+
                     text =
                         "عدد المستلمين: $recipientCount"
                 )
+
 
                 Spacer(
                     modifier =
                         Modifier.height(12.dp)
                 )
 
+
                 Text(
+
                     text =
                         "اختيار الشريحة",
 
@@ -1523,36 +1971,50 @@ fun SendScreen(
                         MaterialTheme.typography.titleMedium
                 )
 
+
                 Spacer(
                     modifier =
                         Modifier.height(8.dp)
                 )
 
-                if (simCards.isEmpty()) {
+
+                if (
+                    simCards.isEmpty()
+                ) {
+
 
                     Card(
+
                         modifier =
                             Modifier.fillMaxWidth()
                     ) {
 
+
                         Column(
+
                             modifier =
                                 Modifier.padding(12.dp)
                         ) {
 
+
                             Text(
+
                                 text =
                                     "لم يتم العثور على شرائح SIM فعالة."
                             )
+
 
                             Spacer(
                                 modifier =
                                     Modifier.height(8.dp)
                             )
 
+
                             OutlinedButton(
+
                                 onClick =
                                     onRefreshSims
+
                             ) {
 
                                 Text(
@@ -1562,27 +2024,35 @@ fun SendScreen(
                         }
                     }
 
+
                 } else {
 
+
                     Column {
+
 
                         OutlinedButton(
 
                             onClick = {
+
                                 simMenuExpanded =
                                     true
                             },
 
                             modifier =
                                 Modifier.fillMaxWidth()
+
                         ) {
 
+
                             Text(
+
                                 selectedSim
                                     ?.displayName
                                     ?: "اختر الشريحة"
                             )
                         }
+
 
                         DropdownMenu(
 
@@ -1590,16 +2060,21 @@ fun SendScreen(
                                 simMenuExpanded,
 
                             onDismissRequest = {
+
                                 simMenuExpanded =
                                     false
                             }
+
                         ) {
 
+
                             simCards.forEach { sim ->
+
 
                                 DropdownMenuItem(
 
                                     text = {
+
                                         Text(
                                             sim.displayName
                                         )
@@ -1618,16 +2093,21 @@ fun SendScreen(
                             }
                         }
 
+
                         Spacer(
                             modifier =
                                 Modifier.height(6.dp)
                         )
 
+
                         OutlinedButton(
+
                             onClick =
                                 onRefreshSims,
+
                             modifier =
                                 Modifier.fillMaxWidth()
+
                         ) {
 
                             Text(
@@ -1639,6 +2119,7 @@ fun SendScreen(
             }
         }
 
+
         OutlinedTextField(
 
             value =
@@ -1648,16 +2129,29 @@ fun SendScreen(
                 onMessageChange,
 
             label = {
+
                 Text(
                     "نص الرسالة"
                 )
             },
 
             modifier =
+
                 Modifier
                     .fillMaxWidth()
                     .height(180.dp)
         )
+
+
+        Text(
+
+            text =
+                "الرسائل الطويلة مدعومة وسيتم تقسيمها تلقائياً إلى عدة أجزاء.",
+
+            style =
+                MaterialTheme.typography.bodySmall
+        )
+
 
         Button(
 
@@ -1666,33 +2160,45 @@ fun SendScreen(
 
             modifier =
                 Modifier.fillMaxWidth()
+
         ) {
 
+
             Icon(
+
                 Icons.Default.Send,
-                contentDescription = null
+
+                contentDescription =
+                    null
             )
+
 
             Spacer(
                 modifier =
                     Modifier.padding(4.dp)
             )
 
+
             Text(
                 "إرسال الآن"
             )
         }
 
+
         if (
             statusMessage.isNotBlank()
         ) {
 
+
             Card(
+
                 modifier =
                     Modifier.fillMaxWidth()
             ) {
 
+
                 Text(
+
                     text =
                         statusMessage,
 
@@ -1704,37 +2210,52 @@ fun SendScreen(
     }
 }
 
+
 @Composable
 fun HistoryScreen() {
 
+
     Column(
+
         modifier =
+
             Modifier
                 .fillMaxSize()
                 .padding(20.dp)
     ) {
 
+
         Card(
+
             modifier =
                 Modifier.fillMaxWidth()
         ) {
 
+
             Column(
+
                 modifier =
                     Modifier.padding(20.dp)
             ) {
 
+
                 Icon(
+
                     Icons.Default.History,
-                    contentDescription = null
+
+                    contentDescription =
+                        null
                 )
+
 
                 Spacer(
                     modifier =
                         Modifier.height(8.dp)
                 )
 
+
                 Text(
+
                     text =
                         "سجل الرسائل",
 
@@ -1742,12 +2263,15 @@ fun HistoryScreen() {
                         MaterialTheme.typography.titleLarge
                 )
 
+
                 Spacer(
                     modifier =
                         Modifier.height(8.dp)
                 )
 
+
                 Text(
+
                     text =
                         "سيتم تطوير سجل الإرسال التفصيلي في المرحلة 7."
                 )
